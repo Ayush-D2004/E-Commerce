@@ -10,6 +10,7 @@ class ProductSchemaBase(BaseModel):
     rating: float
     review_count: int
     in_stock: bool
+    image_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class CategorySchema(BaseModel):
@@ -83,9 +84,16 @@ class AddressCreateRequest(BaseModel):
     country: str = "India"
     is_default: bool = False
 
+class CheckoutItem(BaseModel):
+    product_id: str
+    name: str
+    quantity: int
+    price: float
+
 class CheckoutRequest(BaseModel):
     address_id: int
     payment_method: str
+    items: Optional[List[CheckoutItem]] = None
 
 class OrderSchema(BaseModel):
     order_id: int

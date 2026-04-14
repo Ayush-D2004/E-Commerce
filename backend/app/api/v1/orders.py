@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models import Order, OrderItem, Cart, Address, Inventory
+from app.models import Order, OrderItem, Cart, Address, Inventory, Product
 from app.schemas import CheckoutRequest, OrderListResponse, OrderSchema
 import uuid
 
@@ -9,12 +9,10 @@ router = APIRouter()
 
 @router.post("/checkout")
 def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
-    # Assuming user_id = 1 for MVP
     user_id = 1
-    cart = db.query(Cart).filter(Cart.user_id == user_id, Cart.status == 'active').first()
     
-    if not cart or not cart.items:
-        raise HTTPException(status_code=400, detail="Cart is empty")
+    if not req.items or len(req.items) == 0:
+        raise HTTPException(status_code=400, detail="Checkout items are missing")
 
     address = db.query(Address).filter(Address.id == req.address_id, Address.user_id == user_id).first()
     if not address:
@@ -24,21 +22,49 @@ def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(address)
 
-    # 1. Process Order Totals
-    subtotal = sum(i.quantity * i.unit_price_snapshot for i in cart.items)
+    # 1. Process Order Totals & Inventory Checks
+    subtotal = 0.0
+    valid_items = []
+    
+    for item in req.items:
+        product_id = str(item.product_id)
+        if product_id.startswith("ext-"):
+            # Global product: skip local inventory, trust frontend price/name
+            subtotal += item.price * item.quantity
+            valid_items.append({
+                "product_id": None, # or store as string if DB permits (currently integer)
+                "product_name": f"[Global] {item.name}",
+                "unit_price": item.price,
+                "quantity": item.quantity,
+                "line_total": item.price * item.quantity
+            })
+        else:
+            # Local product: verify in database
+            pid = int(product_id)
+            inv = db.query(Inventory).filter(Inventory.product_id == pid).with_for_update().first()
+            prod = db.query(Product).filter(Product.id == pid).first()
+            if not prod:
+                 raise HTTPException(status_code=404, detail=f"Product {pid} not found")
+            if not inv or inv.stock_qty < item.quantity:
+                db.rollback()
+                raise HTTPException(status_code=400, detail=f"Insufficient stock for {prod.name}")
+            
+            inv.stock_qty -= item.quantity
+            price = float(prod.base_price)
+            subtotal += price * item.quantity
+            valid_items.append({
+                "product_id": pid,
+                "product_name": prod.name,
+                "unit_price": price,
+                "quantity": item.quantity,
+                "line_total": price * item.quantity
+            })
+
     tax = subtotal * 0.18 # 18% tax
     shipping = 50.0 if subtotal < 500 else 0.0
     total = subtotal + tax + shipping
 
-    # 2. Update Inventory (Transactional check for single-DB MVP)
-    for i in cart.items:
-        inv = db.query(Inventory).filter(Inventory.product_id == i.product_id).with_for_update().first()
-        if not inv or inv.stock_qty < i.quantity:
-            db.rollback()
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for {i.product.name}")
-        inv.stock_qty -= i.quantity
-
-    # 3. Create Order
+    # 2. Create Order
     order_num = f"ORD-{uuid.uuid4().hex[:8].upper()}"
     order = Order(
         order_number=order_num,
@@ -53,21 +79,22 @@ def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
     db.add(order)
     db.flush()
 
-    for i in cart.items:
+    for vi in valid_items:
         oi = OrderItem(
             order_id=order.id,
-            product_id=i.product_id,
-            product_name_snapshot=i.product.name,
-            unit_price_snapshot=i.unit_price_snapshot,
-            quantity=i.quantity,
-            line_total=i.quantity * i.unit_price_snapshot
+            product_id=vi["product_id"],
+            product_name_snapshot=vi["product_name"][:255] if vi["product_name"] else "Unknown",
+            unit_price_snapshot=vi["unit_price"],
+            quantity=vi["quantity"],
+            line_total=vi["line_total"]
         )
         db.add(oi)
 
-    # 4. Mock Payment (Skipped directly to order success)
-
-    # 5. Clear Cart
-    cart.status = 'converted'
+    # 3. Clear existing local cart for hygiene
+    cart = db.query(Cart).filter(Cart.user_id == user_id, Cart.status == 'active').first()
+    if cart:
+        cart.status = 'converted'
+    
     db.commit()
 
     return {

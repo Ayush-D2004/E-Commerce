@@ -8,7 +8,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(150), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    phone = Column(String(20))
+    phone = Column(String(20), unique=True, index=True)
     password_hash = Column(String(255))
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -165,5 +165,45 @@ class OrderItem(Base):
     unit_price_snapshot = Column(Numeric(12, 2), nullable=False)
     quantity = Column(Integer, nullable=False)
     line_total = Column(Numeric(12, 2), nullable=False)
-
     order = relationship("Order", back_populates="items")
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True)
+    provider = Column(String(50), nullable=False) # e.g. razorpay
+    provider_order_id = Column(String(255))
+    provider_payment_id = Column(String(255))
+    signature = Column(String(255))
+    amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(10), default="INR", nullable=False)
+    status = Column(String(50), default="pending", nullable=False) # pending, success, failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    order = relationship("Order", backref="payment")
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    type = Column(String(50), nullable=False) # e.g. purchase, refund
+    status = Column(String(50), default="success", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    user = relationship("User")
+
+class ProductRecommendation(Base):
+    __tablename__ = "product_recommendations"
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    recommended_product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    score = Column(Numeric(6, 4), nullable=False)
+    rank = Column(Integer, nullable=False)
+    reason = Column(String(50), default="similar") # e.g., similar, top_rated
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # We don't necessarily need a full back_populates here for simplicity
+    product = relationship("Product", foreign_keys=[product_id])
+    recommended_product = relationship("Product", foreign_keys=[recommended_product_id])

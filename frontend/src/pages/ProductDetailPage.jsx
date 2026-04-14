@@ -7,20 +7,24 @@ import apiClient from '../apiClient';
 export default function ProductDetailPage() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   useEffect(() => {
-    apiClient.get(`/products/${id}`)
-      .then(res => {
-        setProduct(res.data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+    setLoading(true);
+    Promise.all([
+      apiClient.get(`/products/${id}`),
+      apiClient.get(`/products/${id}/recommendations`)
+    ]).then(([resProduct, resRecs]) => {
+      setProduct(resProduct.data);
+      setRecommendations(resRecs.data || []);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
   }, [id]);
 
   if (loading) return <div className="container" style={{ padding: '20px' }}>Loading...</div>;
@@ -133,6 +137,28 @@ export default function ProductDetailPage() {
         </div>
 
       </div>
+
+      {/* Recommendations Strip */}
+      {recommendations.length > 0 && (
+        <div style={{ marginTop: '50px', backgroundColor: 'white', padding: '20px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>Customers who viewed this item also viewed</h2>
+          <div style={{ display: 'flex', overflowX: 'auto', gap: '20px', paddingBottom: '10px' }}>
+            {recommendations.map(p => (
+              <a href={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
+                    <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={p.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                </div>
+                <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '5px' }}>
+                  <span style={{ fontSize: '12px', color: '#007185' }}>{p.rating?.toFixed(1) || '4.5'}</span>
+                  <span style={{ fontSize: '12px', color: '#007185' }}>({p.review_count})</span>
+                </div>
+                <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{p.price?.toLocaleString()}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
