@@ -1,0 +1,6 @@
+.gemini/
+.env   
+venv
+__pycache__
+.vscode
+alembic/
