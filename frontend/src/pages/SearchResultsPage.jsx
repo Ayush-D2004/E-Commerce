@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import apiClient from '../apiClient';
+import { formatPrice, sanitizeName } from '../utils/productUtils';
 
 export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,6 +20,8 @@ export default function SearchResultsPage() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sort, setSort] = useState('relevance');
+  const debounceRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     // Reset on param change
@@ -29,15 +32,28 @@ export default function SearchResultsPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (isGlobalMode) {
-      fetchGlobalResults(globalOffset === 0);
-    } else {
-      fetchResults(page === 1);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
+    setLoading(true);
+    debounceRef.current = setTimeout(() => {
+      if (isGlobalMode) {
+        fetchGlobalResults(globalOffset === 0);
+      } else {
+        fetchResults(page === 1);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
   }, [searchParams, page, isGlobalMode, globalOffset]);
 
   const fetchResults = async (isNew = false) => {
-    setLoading(true);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     try {
       const { data } = await apiClient.get('/products', {
         params: {
@@ -51,6 +67,7 @@ export default function SearchResultsPage() {
           page_size: 20
         }
       });
+      if (requestId !== requestIdRef.current) return;
       if (isNew) {
         setProducts(data.items);
       } else {
@@ -65,7 +82,8 @@ export default function SearchResultsPage() {
   };
 
   const fetchGlobalResults = async (isNew = false) => {
-    setLoading(true);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     try {
       const offset = isNew ? 0 : globalOffset;
 
@@ -104,6 +122,8 @@ export default function SearchResultsPage() {
         isExternal: true,
         description: i.description
       }));
+
+      if (requestId !== requestIdRef.current) return;
 
       if (isNew) {
         setProducts(mapped);
@@ -216,13 +236,13 @@ export default function SearchResultsPage() {
               <div key={p.id} style={{ display: 'flex', gap: '20px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #eee' }}>
                 <img 
                   src={p.image_url || `https://picsum.photos/seed/${p.id}/200`} 
-                  alt={p.name} 
+                  alt={sanitizeName(p.name)} 
                   onError={(e) => { e.target.src = 'https://picsum.photos/200' }}
                   style={{ width: '200px', height: '200px', objectFit: 'contain', backgroundColor: '#f8f8f8' }} 
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <Link to={p.isExternal ? '#' : `/product/${p.id}`} style={{ fontSize: '18px', fontWeight: 'bold', color: '#007185', textDecoration: 'none' }}>
-                    {p.name}
+                    {sanitizeName(p.name)}
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '10px' }}>
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -233,7 +253,7 @@ export default function SearchResultsPage() {
                   
                   <div style={{ marginTop: '15px' }}>
                     <span style={{ fontSize: '14px' }}>₹</span>
-                    <span style={{ fontSize: '28px', fontWeight: 'bold' }}>{p.price.toLocaleString()}</span>
+                    <span style={{ fontSize: '28px', fontWeight: 'bold' }}>{formatPrice(p.price)}</span>
                   </div>
                   
                   <div style={{ marginTop: '10px', fontSize: '14px', color: '#565959' }}>

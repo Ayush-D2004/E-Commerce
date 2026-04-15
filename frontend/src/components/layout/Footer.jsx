@@ -29,33 +29,33 @@ export default function Footer() {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Get to Know Us</h3>
-          <Link to="#" style={{ color: '#ccc' }}>About Us</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Careers</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Press Releases</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Scaler Science</Link>
+          <Link to="/coming-soon?topic=About%20Us" style={{ color: '#ccc' }}>About Us</Link>
+          <Link to="/coming-soon?topic=Careers" style={{ color: '#ccc' }}>Careers</Link>
+          <Link to="/coming-soon?topic=Press%20Releases" style={{ color: '#ccc' }}>Press Releases</Link>
+          <Link to="/coming-soon?topic=Scaler%20Science" style={{ color: '#ccc' }}>Scaler Science</Link>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Connect with Us</h3>
-          <Link to="#" style={{ color: '#ccc' }}>Facebook</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Twitter</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Instagram</Link>
+          <Link to="/coming-soon?topic=Facebook" style={{ color: '#ccc' }}>Facebook</Link>
+          <Link to="/coming-soon?topic=Twitter" style={{ color: '#ccc' }}>Twitter</Link>
+          <Link to="/coming-soon?topic=Instagram" style={{ color: '#ccc' }}>Instagram</Link>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Make Money with Us</h3>
-          <Link to="#" style={{ color: '#ccc' }}>Sell on ScalerCart</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Protect and Build Your Brand</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Global Selling</Link>
-          <Link to="#" style={{ color: '#ccc' }}>Become an Affiliate</Link>
+          <Link to="/coming-soon?topic=Sell%20on%20ScalerCart" style={{ color: '#ccc' }}>Sell on ScalerCart</Link>
+          <Link to="/coming-soon?topic=Protect%20and%20Build%20Your%20Brand" style={{ color: '#ccc' }}>Protect and Build Your Brand</Link>
+          <Link to="/coming-soon?topic=Global%20Selling" style={{ color: '#ccc' }}>Global Selling</Link>
+          <Link to="/coming-soon?topic=Affiliate%20Program" style={{ color: '#ccc' }}>Become an Affiliate</Link>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Let Us Help You</h3>
           <Link to="/account" style={{ color: '#ccc' }}>Your Account</Link>
           <Link to="/orders" style={{ color: '#ccc' }}>Returns Centre</Link>
-          <Link to="/search" style={{ color: '#ccc' }}>100% Purchase Protection</Link>
-          <Link to="/account" style={{ color: '#ccc' }}>Help</Link>
+          <Link to="/coming-soon?topic=Purchase%20Protection" style={{ color: '#ccc' }}>100% Purchase Protection</Link>
+          <Link to="/coming-soon?topic=Help%20Center" style={{ color: '#ccc' }}>Help</Link>
         </div>
       </div>
 

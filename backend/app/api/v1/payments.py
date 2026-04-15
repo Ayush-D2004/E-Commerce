@@ -1,10 +1,13 @@
 import os
+from dotenv import load_dotenv
 import razorpay
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import Order, Payment, Transaction
+
+load_dotenv()
 
 router = APIRouter()
 

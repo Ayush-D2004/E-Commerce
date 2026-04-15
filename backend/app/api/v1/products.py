@@ -107,6 +107,7 @@ def get_random_products(limit: int = 24, db: Session = Depends(get_db)):
     products = (
         db.query(Product)
         .filter(Product.is_active == True)
+        .distinct(Product.id)
         .order_by(func.random())
         .limit(limit)
         .all()
@@ -131,7 +132,14 @@ def get_random_products(limit: int = 24, db: Session = Depends(get_db)):
 @router.get("/products/flash-deals", response_model=List[ProductSchemaBase])
 def get_flash_deals(db: Session = Depends(get_db)):
     # Flash deals can just be top rated products on sale. Here we mock it via rating/stock
-    deals = db.query(Product).filter(Product.is_active == True).order_by(func.random()).limit(10).all()
+    deals = (
+        db.query(Product)
+        .filter(Product.is_active == True)
+        .distinct(Product.id)
+        .order_by(func.random())
+        .limit(10)
+        .all()
+    )
     
     items = []
     for p in deals:

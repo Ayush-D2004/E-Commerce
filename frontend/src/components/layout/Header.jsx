@@ -1,13 +1,24 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Search, ShoppingCart, User, Menu, Bell } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import apiClient from '../../apiClient';
 
 export default function Header() {
   const cartItems = useSelector((state) => state.cart.items);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeCategory = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('category') || '';
+  }, [location.search]);
+  const activeSort = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('sort') || '';
+  }, [location.search]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -16,10 +27,22 @@ export default function Header() {
     }
   };
 
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const { data } = await apiClient.get('/notifications');
+        setUnreadCount(data.unread_count || 0);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadNotifications();
+  }, [location.pathname]);
+
   return (
-    <>
-      <header style={{ backgroundColor: 'var(--amz-navy)', color: 'white', padding: '10px 0' }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+    <div className="sticky-shell">
+      <header className="site-header" style={{ backgroundColor: 'var(--amz-navy)', color: 'white', padding: '10px 0' }}>
+        <div className="container site-header__row" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           
           <Link to="/" style={{ fontSize: '24px', fontWeight: 'bold' }}>
             Scaler<span style={{ color: 'var(--amz-yellow)' }}>Cart</span>
@@ -27,6 +50,7 @@ export default function Header() {
           
           <form 
             onSubmit={handleSearch}
+            className="site-header__search"
             style={{ display: 'flex', flex: 1, alignItems: 'center', backgroundColor: 'white', borderRadius: '4px', overflow: 'hidden' }}
           >
             <input 
@@ -42,10 +66,23 @@ export default function Header() {
           </form>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <Link to="/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Bell size={24} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-6px', right: '-6px',
+                  backgroundColor: 'var(--amz-orange)', color: '#111',
+                  fontSize: '10px', fontWeight: 'bold', borderRadius: '10px',
+                  padding: '2px 6px'
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
             <Link to="/account" style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
               <User size={24} />
               <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px' }}>
-                <span>Hello, Raina</span>
+                <span>Hello, Ayush</span>
                 <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Account</span>
               </div>
             </Link>
@@ -70,21 +107,19 @@ export default function Header() {
       </header>
       
       {/* Quick Access Bar */}
-      <div style={{ backgroundColor: '#232f3e', color: 'white', display: 'flex', alignItems: 'center', padding: '0 10px', height: '40px', fontSize: '14px', gap: '15px' }}>
+      <div className="site-nav" style={{ backgroundColor: '#232f3e', color: 'white', display: 'flex', alignItems: 'center', padding: '0 10px', height: '40px', fontSize: '14px', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
           <Menu size={20} />
           <span>All</span>
         </div>
-        <Link to="/search?category=general" style={{color: 'white', textDecoration: 'none'}}>General</Link>
-        <Link to="/search?category=fashion-apparel" style={{color: 'white', textDecoration: 'none'}}>Fashion</Link>
-        <Link to="/search?category=home-kitchen" style={{color: 'white', textDecoration: 'none'}}>Home & Kitchen</Link>
-        <Link to="/search?category=electronics-gadgets" style={{color: 'white', textDecoration: 'none'}}>Electronics</Link>
-        <Link to="/search?category=footwear" style={{color: 'white', textDecoration: 'none'}}>Footwear</Link>
-        <Link to="/search?category=bags-accessories" style={{color: 'white', textDecoration: 'none'}}>Bags</Link>
-        <Link to="/search?sort=rating" style={{color: 'white', textDecoration: 'none'}}>Today's Deals</Link>
-        <Link to="/search?sort=newest" style={{color: 'white', textDecoration: 'none'}}>New Releases</Link>
-        <Link to="/account" style={{color: 'white', textDecoration: 'none'}}>Customer Service</Link>
+        <Link to="/search?category=fashion-apparel" className={`nav-link ${activeCategory === 'fashion-apparel' ? 'active' : ''}`}>Fashion</Link>
+        <Link to="/search?category=home-kitchen" className={`nav-link ${activeCategory === 'home-kitchen' ? 'active' : ''}`}>Home & Kitchen</Link>
+        <Link to="/search?category=electronics-gadgets" className={`nav-link ${activeCategory === 'electronics-gadgets' ? 'active' : ''}`}>Electronics</Link>
+        <Link to="/search?category=footwear" className={`nav-link ${activeCategory === 'footwear' ? 'active' : ''}`}>Footwear</Link>
+        <Link to="/search?category=bags-accessories" className={`nav-link ${activeCategory === 'bags-accessories' ? 'active' : ''}`}>Bags</Link>
+        <Link to="/search?sort=rating" className={`nav-link ${activeSort === 'rating' ? 'active' : ''}`}>Today's Deals</Link>
+        <Link to="/search?sort=newest" className={`nav-link ${activeSort === 'newest' ? 'active' : ''}`}>New Releases</Link>
       </div>
-    </>
+    </div>
   );
 }

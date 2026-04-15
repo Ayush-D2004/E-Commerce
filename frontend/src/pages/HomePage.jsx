@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { Star } from 'lucide-react';
+import { dedupeById, formatPrice, sanitizeName } from '../utils/productUtils';
 
 export default function HomePage() {
   const [flashDeals, setFlashDeals] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [recTitle, setRecTitle] = useState("Recommended for you");
   const [randomProducts, setRandomProducts] = useState([]);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [loading, setLoading] = useState(true);
   const marqueeRef = useRef(null);
   const dragState = useRef({
@@ -24,11 +26,11 @@ export default function HomePage() {
           apiClient.get('/recommendations/personalized'),
           apiClient.get('/products/random', { params: { limit: 30 } })
         ]);
-        setFlashDeals(dealsRes.data || []);
-        setRandomProducts(randomRes.data || []);
+        setFlashDeals(dedupeById(dealsRes.data || []));
+        setRandomProducts(dedupeById(randomRes.data || []));
 
         if (recsRes.data && recsRes.data.items) {
-          setRecommendations(recsRes.data.items);
+          setRecommendations(dedupeById(recsRes.data.items));
           if (recsRes.data.type === 'fallback_trending') {
             setRecTitle("Top Trending Products right now");
           }
@@ -40,6 +42,18 @@ export default function HomePage() {
       }
     };
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('recentlyViewed');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setRecentlyViewed(dedupeById(parsed).slice(0, 10));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
 
   const shuffledRandom = React.useMemo(() => {
@@ -83,14 +97,16 @@ export default function HomePage() {
         {products.map(p => (
           <Link to={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
             <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
-              <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={p.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={sanitizeName(p.name)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             </div>
-            <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+            <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {sanitizeName(p.name)}
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '5px' }}>
               <Star size={14} fill="var(--amz-yellow)" color="var(--amz-yellow)" />
               <span style={{ fontSize: '12px', color: '#007185' }}>{p.rating?.toFixed(1) || '4.5'}</span>
             </div>
-            <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{p.price?.toLocaleString()}</span>
+            <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{formatPrice(p.price)}</span>
           </Link>
         ))}
       </div>
@@ -121,11 +137,11 @@ export default function HomePage() {
                 {heroRow.map((p) => (
                   <Link to={`/product/${p.id}`} key={`hero-${p.id}`} className="frame-card">
                     <div className="frame-image">
-                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={p.name} />
+                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={sanitizeName(p.name)} />
                     </div>
                     <div className="frame-meta">
-                      <span className="frame-name">{p.name}</span>
-                      <span className="frame-price">₹{p.price?.toLocaleString()}</span>
+                      <span className="frame-name">{sanitizeName(p.name)}</span>
+                      <span className="frame-price">₹{formatPrice(p.price)}</span>
                     </div>
                   </Link>
                 ))}
@@ -134,11 +150,11 @@ export default function HomePage() {
                 {heroRow.map((p) => (
                   <Link to={`/product/${p.id}`} key={`hero-dup-${p.id}`} className="frame-card">
                     <div className="frame-image">
-                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={p.name} />
+                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={sanitizeName(p.name)} />
                     </div>
                     <div className="frame-meta">
-                      <span className="frame-name">{p.name}</span>
-                      <span className="frame-price">₹{p.price?.toLocaleString()}</span>
+                      <span className="frame-name">{sanitizeName(p.name)}</span>
+                      <span className="frame-price">₹{formatPrice(p.price)}</span>
                     </div>
                   </Link>
                 ))}
@@ -194,15 +210,20 @@ export default function HomePage() {
                   {galleryProducts.map((p) => (
                     <Link to={`/product/${p.id}`} key={`gallery-${p.id}`} className="gallery-card">
                       <div className="gallery-image">
-                        <img src={p.image_url || `https://picsum.photos/seed/${p.id}/240`} alt={p.name} />
+                        <img src={p.image_url || `https://picsum.photos/seed/${p.id}/240`} alt={sanitizeName(p.name)} />
                       </div>
                       <div className="gallery-info">
-                        <span>{p.name}</span>
-                        <strong>₹{p.price?.toLocaleString()}</strong>
+                        <span>{sanitizeName(p.name)}</span>
+                        <strong>₹{formatPrice(p.price)}</strong>
                       </div>
                     </Link>
                   ))}
                 </div>
+              </div>
+            )}
+            {recentlyViewed.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                {renderProductStrip(recentlyViewed, "Recently Viewed")}
               </div>
             )}
           </>

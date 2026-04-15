@@ -14,6 +14,8 @@ class AddressSchema(BaseModel):
     city: str
     state: str
     postal_code: str
+    country: str
+    is_default: bool
 
     class Config:
         from_attributes = True
@@ -24,6 +26,17 @@ class AddressCreate(BaseModel):
     city: str
     state: str
     postal_code: str
+    country: str = "India"
+    is_default: bool = False
+
+class AddressUpdate(BaseModel):
+    line1: Optional[str] = None
+    line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    is_default: Optional[bool] = None
 
 class UserProfile(BaseModel):
     id: int
@@ -76,9 +89,50 @@ def add_user_address(addr: AddressCreate, db: Session = Depends(get_db)):
         line2=addr.line2,
         city=addr.city,
         state=addr.state,
-        postal_code=addr.postal_code
+        postal_code=addr.postal_code,
+        country=addr.country,
+        is_default=addr.is_default
     )
+    if addr.is_default:
+        db.query(Address).filter(Address.user_id == user.id).update({"is_default": False})
     db.add(new_addr)
     db.commit()
     db.refresh(new_addr)
     return new_addr
+
+@router.get("/users/me/addresses", response_model=List[AddressSchema])
+def list_user_addresses(db: Session = Depends(get_db)):
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No users in database")
+    return db.query(Address).filter(Address.user_id == user.id).order_by(Address.created_at.desc()).all()
+
+@router.put("/users/me/addresses/{addr_id}", response_model=AddressSchema)
+def update_user_address(addr_id: int, updates: AddressUpdate, db: Session = Depends(get_db)):
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No users in database")
+    address = db.query(Address).filter(Address.id == addr_id, Address.user_id == user.id).first()
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+
+    if updates.is_default:
+        db.query(Address).filter(Address.user_id == user.id).update({"is_default": False})
+
+    for field, value in updates.model_dump(exclude_unset=True).items():
+        setattr(address, field, value)
+    db.commit()
+    db.refresh(address)
+    return address
+
+@router.delete("/users/me/addresses/{addr_id}")
+def delete_user_address(addr_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No users in database")
+    address = db.query(Address).filter(Address.id == addr_id, Address.user_id == user.id).first()
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+    db.delete(address)
+    db.commit()
+    return {"status": "success"}

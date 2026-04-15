@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.core.database import get_db
-from app.models import Product, ProductRecommendation, OrderItem, CartItem, Order
+from app.models import Product, ProductRecommendation, OrderItem, CartItem, Order, Wishlist, WishlistItem
 
 router = APIRouter()
 
@@ -85,11 +85,21 @@ def get_personalized(db: Session = Depends(get_db), user_id: int = 1):
     # Strategy: User -> Recommendation Service
     # 1. Fetch user signals
     past_order_items = db.query(OrderItem).join(Order).filter(Order.user_id == user_id).limit(10).all()
-    # (Optional: fetch cart / wishlist. For MVP we use past orders as primary signal)
+    wishlist_items = (
+        db.query(WishlistItem)
+        .join(Wishlist)
+        .filter(Wishlist.user_id == user_id)
+        .all()
+    )
     
     # If UI signals exist, build personalized list
-    if past_order_items:
-        signal_product_ids = [item.product_id for item in past_order_items]
+    signal_product_ids = [item.product_id for item in past_order_items if item.product_id]
+    wishlist_signal_ids = [wi.product_id for wi in wishlist_items]
+    if wishlist_signal_ids:
+        signal_product_ids.extend(wishlist_signal_ids)
+    signal_product_ids = list({pid for pid in signal_product_ids if pid is not None})
+
+    if signal_product_ids:
         
         # Aggregate semantic neighbors
         raw_recs = db.query(ProductRecommendation).filter(
@@ -99,9 +109,11 @@ def get_personalized(db: Session = Depends(get_db), user_id: int = 1):
         # Simple popularity blend for personalized
         # We use a frequency map of recommended items
         freq_map = {}
+        wishlist_boost = {pid: 1.4 for pid in wishlist_signal_ids}
         for rec in raw_recs:
             if rec.recommended_product_id not in signal_product_ids: # Don't recommend what they already bought
-                freq_map[rec.recommended_product_id] = freq_map.get(rec.recommended_product_id, 0) + float(rec.score)
+                weight = wishlist_boost.get(rec.product_id, 1.0)
+                freq_map[rec.recommended_product_id] = freq_map.get(rec.recommended_product_id, 0) + (float(rec.score) * weight)
                 
         # Sort by grouped semantic score
         sorted_targets = sorted(freq_map.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -122,7 +134,7 @@ def get_personalized(db: Session = Depends(get_db), user_id: int = 1):
                     "price": float(prod.base_price),
                     "rating": float(prod.rating),
                     "image_url": image_url,
-                    "recommendation_reason": "Based on your purchase history"
+                    "recommendation_reason": "Based on your shopping activity"
                 })
             return {"type": "personalized", "items": items}
 

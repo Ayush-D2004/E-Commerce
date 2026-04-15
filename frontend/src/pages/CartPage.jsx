@@ -2,7 +2,7 @@ import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { removeFromCart, setQuantity } from '../features/cart/cartSlice';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../apiClient';
+import { formatPrice, sanitizeName } from '../utils/productUtils';
 
 export default function CartPage() {
   const { items, subtotal } = useSelector((state) => state.cart);
@@ -10,7 +10,9 @@ export default function CartPage() {
   const navigate = useNavigate();
 
   const handleQuantity = (id, current, delta) => {
-    dispatch(setQuantity({ product_id: id, quantity: current + delta }));
+    const nextQty = current + delta;
+    if (nextQty <= 0) return;
+    dispatch(setQuantity({ product_id: id, quantity: nextQty }));
   };
 
   const handleRemove = (id) => {
@@ -35,7 +37,11 @@ export default function CartPage() {
         <h1 style={{ fontSize: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '20px' }}>Shopping Cart</h1>
         
         {items.length === 0 ? (
-          <p>Your Amazon Cart is empty.</p>
+          <div style={{ padding: '30px 10px' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Your cart is lonely.</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Add a few fresh finds to make it shine.</p>
+            <button className="btn-primary" onClick={() => navigate('/')}>Continue Shopping</button>
+          </div>
         ) : (
           <div>
             {items.map((item) => (
@@ -47,7 +53,7 @@ export default function CartPage() {
                 </div>
                 
                 <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: '18px', color: 'var(--link-color)', marginBottom: '5px' }}>{item.name}</h3>
+                  <h3 style={{ fontSize: '18px', color: 'var(--link-color)', marginBottom: '5px' }}>{sanitizeName(item.name)}</h3>
                   <p style={{ color: 'green', fontSize: '12px', marginBottom: '5px' }}>In Stock</p>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
@@ -62,7 +68,7 @@ export default function CartPage() {
                 </div>
 
                 <div style={{ fontWeight: 'bold', fontSize: '18px' }}>
-                  ₹{item.line_total.toLocaleString()}
+                  ₹{formatPrice(item.line_total)}
                 </div>
               </div>
             ))}
@@ -73,7 +79,7 @@ export default function CartPage() {
       <div style={{ flex: '0 1 300px' }}>
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ fontSize: '18px', marginBottom: '15px' }}>
-            Subtotal ({items.reduce((a, b) => a + b.quantity, 0)} items): <span style={{ fontWeight: 'bold' }}>₹{subtotal.toLocaleString()}</span>
+            Subtotal ({items.reduce((a, b) => a + b.quantity, 0)} items): <span style={{ fontWeight: 'bold' }}>₹{formatPrice(subtotal)}</span>
           </div>
           
           <button 

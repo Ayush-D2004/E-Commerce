@@ -194,6 +194,20 @@ class Transaction(Base):
     
     user = relationship("User")
 
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String(50), nullable=False)  # order_placed, order_cancelled, return_requested, etc.
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("User")
+    order = relationship("Order")
+
 class ProductRecommendation(Base):
     __tablename__ = "product_recommendations"
     id = Column(Integer, primary_key=True, index=True)

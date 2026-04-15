@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import products, cart, orders, recommendations, payments, users
+from app.api.v1 import products, cart, orders, recommendations, payments, users, wishlist, notifications
 
 app = FastAPI(title="Scaler Ecommerce API", version="1.0.0")
 
@@ -18,6 +18,8 @@ app.include_router(orders.router, prefix="/api/v1")
 app.include_router(recommendations.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(wishlist.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
 
 @app.get("/api/v1/health")
 async def health_check():

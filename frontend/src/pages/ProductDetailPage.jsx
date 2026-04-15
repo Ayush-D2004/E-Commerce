@@ -3,12 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../features/cart/cartSlice';
 import apiClient from '../apiClient';
+import { formatPrice, sanitizeName } from '../utils/productUtils';
+import { Heart } from 'lucide-react';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -27,6 +31,39 @@ export default function ProductDetailPage() {
     });
   }, [id]);
 
+  useEffect(() => {
+    const loadWishlist = async () => {
+      try {
+        const { data } = await apiClient.get('/wishlist');
+        const exists = (data.items || []).some((item) => String(item.id) === String(id));
+        setIsWishlisted(exists);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadWishlist();
+  }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    try {
+      const stored = localStorage.getItem('recentlyViewed');
+      const parsed = stored ? JSON.parse(stored) : [];
+      const next = [
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image_url: product.images?.[0]?.url || ''
+        },
+        ...parsed.filter((item) => item.id !== product.id)
+      ].slice(0, 12);
+      localStorage.setItem('recentlyViewed', JSON.stringify(next));
+    } catch (err) {
+      console.error(err);
+    }
+  }, [product]);
+
   if (loading) return <div className="container" style={{ padding: '20px' }}>Loading...</div>;
   if (!product) return <div className="container" style={{ padding: '20px' }}>Product not found.</div>;
 
@@ -42,6 +79,24 @@ export default function ProductDetailPage() {
   const handleBuyNow = () => {
     handleAddToCart();
     navigate('/checkout');
+  };
+
+  const toggleWishlist = async () => {
+    if (!product) return;
+    setWishlistBusy(true);
+    try {
+      if (isWishlisted) {
+        await apiClient.delete(`/wishlist/${product.id}`);
+        setIsWishlisted(false);
+      } else {
+        await apiClient.post(`/wishlist/${product.id}`);
+        setIsWishlisted(true);
+      }
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update wishlist');
+    } finally {
+      setWishlistBusy(false);
+    }
   };
 
   return (
@@ -65,7 +120,17 @@ export default function ProductDetailPage() {
 
         {/* Details Column */}
         <div style={{ flex: '2 1 400px' }}>
-          <h1 style={{ fontSize: '24px', lineHeight: '1.2', marginBottom: '5px' }}>{product.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <h1 style={{ fontSize: '24px', lineHeight: '1.2', marginBottom: '5px' }}>{sanitizeName(product.name)}</h1>
+            <button
+              onClick={toggleWishlist}
+              disabled={wishlistBusy}
+              title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              style={{ background: 'none', border: '1px solid #d5d9d9', borderRadius: '999px', padding: '6px 10px', cursor: 'pointer' }}
+            >
+              <Heart size={18} fill={isWishlisted ? '#b12704' : 'none'} color={isWishlisted ? '#b12704' : '#111'} />
+            </button>
+          </div>
           <a href="#" style={{ color: 'var(--link-color)', fontSize: '14px' }}>Visit the {product.brand || 'Store'}</a>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '10px 0', paddingBottom: '10px', borderBottom: '1px solid var(--border-color)' }}>
@@ -76,7 +141,7 @@ export default function ProductDetailPage() {
           <div style={{ padding: '10px 0', borderBottom: '1px solid var(--border-color)' }}>
             <p style={{ fontSize: '28px', fontWeight: '500', color: '#B12704' }}>
               <span style={{ fontSize: '14px', position: 'relative', top: '-8px' }}>₹</span>
-              {product.price.toLocaleString()}
+              {formatPrice(product.price)}
             </p>
           </div>
 
@@ -104,7 +169,7 @@ export default function ProductDetailPage() {
         {/* Action Column */}
         <div style={{ flex: '0 1 300px', minWidth: '250px' }}>
           <div className="card" style={{ border: '1px solid var(--border-color)', padding: '15px' }}>
-            <p style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{product.price.toLocaleString()}</p>
+            <p style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{formatPrice(product.price)}</p>
             
             <p style={{ color: 'green', fontSize: '18px', margin: '10px 0' }}>
               {product.in_stock ? 'In Stock' : 'Out of Stock'}
@@ -148,12 +213,12 @@ export default function ProductDetailPage() {
                 <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
                     <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={p.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
-                <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</span>
+                <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sanitizeName(p.name)}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '5px' }}>
                   <span style={{ fontSize: '12px', color: '#007185' }}>{p.rating?.toFixed(1) || '4.5'}</span>
                   <span style={{ fontSize: '12px', color: '#007185' }}>({p.review_count})</span>
                 </div>
-                <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{p.price?.toLocaleString()}</span>
+                <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{formatPrice(p.price)}</span>
               </a>
             ))}
           </div>
