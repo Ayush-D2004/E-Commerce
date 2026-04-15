@@ -65,7 +65,7 @@ export default function Footer() {
             Scaler<span style={{ color: 'var(--amz-yellow)' }}>Cart</span>
           </Link>
           <p style={{ color: '#999', fontSize: '12px', marginTop: '10px' }}>
-            © {new Date().getFullYear()} ScalerCart. Inspired by the best eCommerce conventions. Designed for Scaler Ecosystem.
+            © {new Date().getFullYear()} ScalerCart. Inspired by the best eCommerce conventions. Made by Ayush Dhoble
           </p>
         </div>
       </div>
