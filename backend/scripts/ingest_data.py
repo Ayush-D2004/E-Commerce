@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import pandas as pd
 import numpy as np
 import ast
@@ -15,6 +16,43 @@ from app.models import Category, Product, ProductImage, ProductSpec, Inventory, 
 
 # Set seeds
 random.seed(42)
+
+def read_csv_safe(path: str) -> pd.DataFrame:
+    # Try common encodings; latin1 is a safe last resort for mixed datasets
+    for enc in ("utf-8", "utf-8-sig", "cp1252"):
+        try:
+            return pd.read_csv(path, encoding=enc)
+        except UnicodeDecodeError:
+            continue
+    return pd.read_csv(path, encoding="latin1")
+
+def pick_category(row: pd.Series, primary_cols: list, secondary_cols: list, default: str = "General") -> str:
+    for col in primary_cols:
+        if col in row and pd.notna(row[col]) and str(row[col]).strip():
+            return str(row[col]).strip()
+    for col in secondary_cols:
+        if col in row and pd.notna(row[col]) and str(row[col]).strip():
+            return str(row[col]).strip()
+    return default
+
+def get_optional_category(row: pd.Series, cols: list) -> str | None:
+    for col in cols:
+        if col in row and pd.notna(row[col]) and str(row[col]).strip():
+            return str(row[col]).strip()
+    return None
+
+def collect_categories(df: pd.DataFrame, primary_cols: list, secondary_cols: list) -> set:
+    categories = set()
+    for col in primary_cols + secondary_cols:
+        if col in df.columns:
+            for cat in df[col].dropna().unique():
+                if str(cat).strip():
+                    categories.add(str(cat).strip())
+    return categories
+
+def slugify(value: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower())
+    return value.strip("-")[:100]
 
 def clean_flipkart_image(img_str):
     if not isinstance(img_str, str) or not img_str:
@@ -63,11 +101,11 @@ def ingest_data():
     
     print("Loading datasets...")
     # We load a subset to keep the TF-IDF matrix computation fast in local environments
-    df_products = pd.read_csv('../data/products.csv').dropna(subset=['title', 'price'])
+    df_products = read_csv_safe('../data/products.csv').dropna(subset=['title', 'price'])
     # Combine some from Flipkart
-    df_flipkart = pd.read_csv('../data/flipkart_com-ecommerce_sample.csv').dropna(subset=['product_name', 'retail_price'])
+    df_flipkart = read_csv_safe('../data/flipkart_com-ecommerce_sample.csv').dropna(subset=['title', 'price'])
     # New fake dataset
-    df_fake = pd.read_csv('../data/fake.csv').dropna(subset=['title', 'price'])
+    df_fake = read_csv_safe('../data/fake.csv').dropna(subset=['title', 'price'])
     
     print(f"Products.csv holds {len(df_products)} rows. Flipkart holds {len(df_flipkart)} rows. Fake.csv holds {len(df_fake)} rows.")
     
@@ -78,16 +116,13 @@ def ingest_data():
     categories_set = set()
     category_id_map = {}
     
-    for cat in df_p['category'].dropna().unique():
-        categories_set.add(str(cat).strip())
-
-    for cat in df_fake['category__name'].dropna().unique():
-        categories_set.add(str(cat).strip())
+    categories_set.update(collect_categories(df_p, ["standard_category"], ["category"]))
+    categories_set.update(collect_categories(df_fake, ["standard_category"], ["category__name", "category"]))
     
     categories_set.update(["General", "Shoes", "Luxury Watches", "Electronics", "Premium Handbags", "New Season Fashion"])
     
     for cat in categories_set:
-        slug = cat.lower().replace(' ', '-').replace('/', '-')[:100]
+        slug = slugify(cat)
         c = Category(name=cat, slug=slug)
         db.add(c)
     db.commit()
@@ -100,7 +135,8 @@ def ingest_data():
     
     # 1. Insert Products.csv
     for _, row in df_p.iterrows():
-        cat_name = str(row['category']).strip()
+        cat_name = pick_category(row, ["standard_category"], ["category"])
+        secondary_cat = get_optional_category(row, ["category"])
         cid = category_id_map.get(cat_name, category_id_map['General'])
         slug = str(row['title']).lower().replace(' ', '-').replace('/', '-')[:200]
         
@@ -108,7 +144,7 @@ def ingest_data():
             category_id=cid,
             name=str(row['title'])[:250],
             slug=f"{slug}-{random.randint(1000,9999)}",
-            description=f"Great product from {row['brand']} in category {row['category']}",
+            description=f"Great product from {row['brand']} in category {cat_name}",
             brand=str(row['brand']),
             base_price=float(row['price']),
             rating=parse_rating(row.get('rating')),
@@ -126,41 +162,26 @@ def ingest_data():
         
         products_for_ml.append({
             'id': p.id,
-            'text_content': f"{p.name} {p.brand} {cat_name} {p.description}"
+            'text_content': f"{p.name} {p.brand} {cat_name} {secondary_cat or ''} {p.description}"
         })
 
     # 2. Insert Flipkart.csv
     for _, row in df_f.iterrows():
-        pname = str(row['product_name']).lower()
+        pname = str(row['title']).lower()
         slug = pname.replace(' ', '-').replace('/', '-')[:200]
-        # Clean price, some flipkart prices might be high strings
-        price = float(row['retail_price']) if pd.notna(row['retail_price']) else 1000.0
-        
-        # Simple category guessing
-        matched_cat = 'General'
-        if any(w in pname for w in ['shoe', 'boot', 'sandal', 'footwear', 'heel']):
-            matched_cat = 'Shoes'
-        elif any(w in pname for w in ['watch', 'smartwatch']):
-            matched_cat = 'Luxury Watches'
-        elif any(w in pname for w in ['phone', 'laptop', 'camera', 'tv', 'electronics']):
-            matched_cat = 'Electronics'
-        elif any(w in pname for w in ['bag', 'backpack', 'handbag', 'wallet']):
-            matched_cat = 'Premium Handbags'
-        elif any(w in pname for w in ['shirt', 'pant', 'dress', 'jeans', 'clothing', 'fashion']):
-            matched_cat = 'New Season Fashion'
-
-        # Ensure those categories exist in our DB if they were added to categories_set
-        # We should probably update the categories_set logic above first though.
-        cid = category_id_map.get(matched_cat, category_id_map['General'])
+        price = float(row['price']) if pd.notna(row['price']) else 1000.0
+        cat_name = pick_category(row, ["standard_category"], ["category"])
+        secondary_cat = get_optional_category(row, ["category"])
+        cid = category_id_map.get(cat_name, category_id_map['General'])
         
         p = Product(
             category_id=cid,
-            name=str(row['product_name'])[:250],
+            name=str(row['title'])[:250],
             slug=f"{slug}-{random.randint(1000,9999)}",
             description=str(row['description'])[:1000] if pd.notna(row['description']) else "No description",
             brand=str(row['brand']) if pd.notna(row['brand']) else "Generic",
             base_price=price,
-            rating=parse_rating(row.get('product_rating')),
+            rating=parse_rating(row.get('rating')),
             review_count=random.randint(5, 500)
         )
         db.add(p)
@@ -178,12 +199,13 @@ def ingest_data():
         
         products_for_ml.append({
             'id': p.id,
-            'text_content': f"{p.name} {p.brand} {p.description}"
+            'text_content': f"{p.name} {p.brand} {cat_name} {secondary_cat or ''} {p.description}"
         })
 
     # 3. Insert Fake.csv
     for _, row in df_fake.iterrows():
-        cat_name = str(row['category__name']).strip()
+        cat_name = pick_category(row, ["standard_category"], ["category__name", "category"])
+        secondary_cat = get_optional_category(row, ["category__name", "category"])
         cid = category_id_map.get(cat_name, category_id_map['General'])
         slug = str(row['title']).lower().replace(' ', '-').replace('/', '-')[:200]
         
@@ -210,7 +232,7 @@ def ingest_data():
         
         products_for_ml.append({
             'id': p.id,
-            'text_content': f"{p.name} {cat_name} {p.description}"
+            'text_content': f"{p.name} {cat_name} {secondary_cat or ''} {p.description}"
         })
 
     db.commit()

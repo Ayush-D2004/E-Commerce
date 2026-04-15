@@ -43,6 +43,7 @@ export default function SearchResultsPage() {
         params: {
           term: query || undefined,
           category: category || undefined,
+          standard_category: category || undefined,
           min_price: searchParams.get('min_price') || undefined,
           max_price: searchParams.get('max_price') || undefined,
           sort: searchParams.get('sort') || undefined,

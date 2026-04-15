@@ -45,8 +45,8 @@ export default function Header() {
             <Link to="/account" style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
               <User size={24} />
               <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px' }}>
-                <span>Hello, User</span>
-                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Account & Lists</span>
+                <span>Hello, Raina</span>
+                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Account</span>
               </div>
             </Link>
 
@@ -76,9 +76,11 @@ export default function Header() {
           <span>All</span>
         </div>
         <Link to="/search?category=general" style={{color: 'white', textDecoration: 'none'}}>General</Link>
-        <Link to="/search?category=new-season" style={{color: 'white', textDecoration: 'none'}}>Fashion</Link>
-        <Link to="/search?category=home" style={{color: 'white', textDecoration: 'none'}}>Home & Kitchen</Link>
-        <Link to="/search?category=beauty" style={{color: 'white', textDecoration: 'none'}}>Beauty</Link>
+        <Link to="/search?category=fashion-apparel" style={{color: 'white', textDecoration: 'none'}}>Fashion</Link>
+        <Link to="/search?category=home-kitchen" style={{color: 'white', textDecoration: 'none'}}>Home & Kitchen</Link>
+        <Link to="/search?category=electronics-gadgets" style={{color: 'white', textDecoration: 'none'}}>Electronics</Link>
+        <Link to="/search?category=footwear" style={{color: 'white', textDecoration: 'none'}}>Footwear</Link>
+        <Link to="/search?category=bags-accessories" style={{color: 'white', textDecoration: 'none'}}>Bags</Link>
         <Link to="/search?sort=rating" style={{color: 'white', textDecoration: 'none'}}>Today's Deals</Link>
         <Link to="/search?sort=newest" style={{color: 'white', textDecoration: 'none'}}>New Releases</Link>
         <Link to="/account" style={{color: 'white', textDecoration: 'none'}}>Customer Service</Link>

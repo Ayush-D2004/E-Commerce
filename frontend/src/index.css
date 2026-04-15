@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {
   --amz-navy: #232F3E;
@@ -21,7 +21,7 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
   background-color: var(--amz-light);
   color: var(--text-dark);
   line-height: 1.5;

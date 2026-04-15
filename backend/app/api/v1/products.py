@@ -1,11 +1,34 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+import re
 from typing import List, Optional
 from app.core.database import get_db
 from app.models import Product, Category, ProductImage, ProductSpec, Inventory
 from app.schemas import ProductDetailSchema, ProductListResponse, ProductSchemaBase, CategorySchema
 
 router = APIRouter()
+
+def normalize_category_value(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.strip().lower())
+
+def normalize_sql(col):
+    normalized = func.lower(col)
+    normalized = func.replace(normalized, "&", "")
+    normalized = func.replace(normalized, "-", "")
+    normalized = func.replace(normalized, "_", "")
+    normalized = func.replace(normalized, "/", "")
+    normalized = func.replace(normalized, " ", "")
+    return normalized
+
+def apply_category_filter(query, category_value: str):
+    normalized = normalize_category_value(category_value)
+    return query.join(Category).filter(
+        or_(
+            normalize_sql(Category.slug) == normalized,
+            normalize_sql(Category.name) == normalized
+        )
+    )
 
 @router.get("/categories", response_model=List[CategorySchema])
 def get_categories(db: Session = Depends(get_db)):
@@ -16,6 +39,7 @@ def get_categories(db: Session = Depends(get_db)):
 def get_products(
     category_id: Optional[int] = None,
     category: Optional[str] = None,
+    standard_category: Optional[str] = None,
     term: Optional[str] = None,
     brand: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -29,8 +53,9 @@ def get_products(
     
     if category_id:
         query = query.filter(Product.category_id == category_id)
-    if category:
-        query = query.join(Category).filter(Category.slug == category)
+    category_value = standard_category or category
+    if category_value:
+        query = apply_category_filter(query, category_value)
     if term:
         query = query.filter(Product.name.ilike(f"%{term}%") | Product.description.ilike(f"%{term}%") | Product.brand.ilike(f"%{term}%"))
     if brand:
@@ -77,10 +102,36 @@ def get_products(
         total=total
     )
 
+@router.get("/products/random", response_model=List[ProductSchemaBase])
+def get_random_products(limit: int = 24, db: Session = Depends(get_db)):
+    products = (
+        db.query(Product)
+        .filter(Product.is_active == True)
+        .order_by(func.random())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for p in products:
+        in_stock = p.inventory.stock_qty > 0 if p.inventory else False
+        image_url = p.images[0].image_url if p.images else None
+        items.append(ProductSchemaBase(
+            id=p.id,
+            name=p.name,
+            slug=p.slug,
+            price=float(p.base_price),
+            rating=float(p.rating),
+            review_count=p.review_count,
+            in_stock=in_stock,
+            image_url=image_url
+        ))
+    return items
+
 @router.get("/products/flash-deals", response_model=List[ProductSchemaBase])
 def get_flash_deals(db: Session = Depends(get_db)):
     # Flash deals can just be top rated products on sale. Here we mock it via rating/stock
-    deals = db.query(Product).filter(Product.is_active == True).order_by(Product.review_count.desc()).limit(10).all()
+    deals = db.query(Product).filter(Product.is_active == True).order_by(func.random()).limit(10).all()
     
     items = []
     for p in deals:
