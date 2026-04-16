@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models import Order, Payment, Transaction
+from app.models import Order, Payment, Transaction, Notification
 
 load_dotenv()
 
@@ -116,6 +116,14 @@ def verify_payment(req: PaymentVerifyRequest, db: Session = Depends(get_db)):
         except razorpay.errors.SignatureVerificationError:
             payment.status = "failed"
             order.status = "payment_failed"
+            failure_notification = Notification(
+                user_id=order.user_id,
+                type="payment_failed",
+                title="Payment failed",
+                body=f"Payment for order {order.order_number} failed due to signature verification.",
+                order_id=order.id,
+            )
+            db.add(failure_notification)
             db.commit()
             raise HTTPException(status_code=400, detail="Invalid payment signature")
 
@@ -133,6 +141,15 @@ def verify_payment(req: PaymentVerifyRequest, db: Session = Depends(get_db)):
         status="success"
     )
     db.add(txn)
+
+    success_notification = Notification(
+        user_id=order.user_id,
+        type="payment_success",
+        title="Payment successful",
+        body=f"Payment for order {order.order_number} was verified successfully.",
+        order_id=order.id,
+    )
+    db.add(success_notification)
     db.commit()
 
     return {"status": "success", "message": "Payment verified perfectly"}

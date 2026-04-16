@@ -19,9 +19,46 @@ export default function CheckoutPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'India',
+    is_default: false,
+  });
 
   useEffect(() => {
      loadScript('https://checkout.razorpay.com/v1/checkout.js');
+  }, []);
+
+  useEffect(() => {
+    const loadAddresses = async () => {
+      try {
+        const { data } = await apiClient.get('/users/me/addresses');
+        const list = Array.isArray(data) ? data : [];
+        setAddresses(list);
+        if (list.length > 0) {
+          const defaultAddress = list.find((addr) => addr.is_default) || list[0];
+          setSelectedAddressId(defaultAddress.id);
+          setShowNewAddressForm(false);
+        } else {
+          setSelectedAddressId(null);
+          setShowNewAddressForm(true);
+        }
+      } catch (err) {
+        console.error(err);
+        setAddresses([]);
+        setSelectedAddressId(null);
+        setShowNewAddressForm(true);
+      }
+    };
+
+    loadAddresses();
   }, []);
 
   const handleRazorpayPayment = async (orderId, rzpOrderData) => {
@@ -70,9 +107,34 @@ export default function CheckoutPage() {
     setLoading(true);
     
     try {
+      let addressIdForCheckout = selectedAddressId;
+
+      if (showNewAddressForm || !addressIdForCheckout) {
+        if (!newAddress.line1 || !newAddress.city || !newAddress.state || !newAddress.postal_code) {
+          alert('Please fill line1, city, state, and postal code for shipping address.');
+          setLoading(false);
+          return;
+        }
+
+        const { data: createdAddress } = await apiClient.post('/users/me/addresses', {
+          line1: newAddress.line1,
+          line2: newAddress.line2 || null,
+          city: newAddress.city,
+          state: newAddress.state,
+          postal_code: newAddress.postal_code,
+          country: newAddress.country || 'India',
+          is_default: !!newAddress.is_default,
+        });
+
+        addressIdForCheckout = createdAddress.id;
+        setAddresses((prev) => [createdAddress, ...prev]);
+        setSelectedAddressId(createdAddress.id);
+        setShowNewAddressForm(false);
+      }
+
       // 1. Checkout
       const checkoutPayload = {
-        address_id: 1, // Assume default seeded address or creates one
+        address_id: addressIdForCheckout,
         payment_method: "razorpay",
         items: items.map(i => ({
             product_id: String(i.product_id),
@@ -126,7 +188,53 @@ export default function CheckoutPage() {
         <div style={{ flex: '1 1 600px' }}>
           <div className="card" style={{ marginBottom: '20px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>1. Shipping address</h3>
-            <p style={{ margin: 0, color: '#333' }}>123 Scaler St, Bangalore, India</p>
+
+            {addresses.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                {addresses.map((addr) => (
+                  <label key={addr.id} style={{ display: 'flex', gap: '10px', border: '1px solid #ddd', borderRadius: '8px', padding: '10px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="shipping_address"
+                      checked={selectedAddressId === addr.id && !showNewAddressForm}
+                      onChange={() => {
+                        setSelectedAddressId(addr.id);
+                        setShowNewAddressForm(false);
+                      }}
+                    />
+                    <div style={{ fontSize: '14px', color: '#333' }}>
+                      <div><strong>{addr.line1}</strong>{addr.is_default ? ' (Default)' : ''}</div>
+                      {addr.line2 ? <div>{addr.line2}</div> : null}
+                      <div>{addr.city}, {addr.state} {addr.postal_code}</div>
+                      <div>{addr.country}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              style={{ marginBottom: '12px', backgroundColor: '#fff', border: '1px solid #d5d9d9', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer' }}
+              onClick={() => setShowNewAddressForm((prev) => !prev)}
+            >
+              {showNewAddressForm ? 'Use Saved Address' : 'Add New Address'}
+            </button>
+
+            {showNewAddressForm && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                <input value={newAddress.line1} onChange={(e) => setNewAddress({ ...newAddress, line1: e.target.value })} placeholder="Address line 1" />
+                <input value={newAddress.line2} onChange={(e) => setNewAddress({ ...newAddress, line2: e.target.value })} placeholder="Address line 2 (optional)" />
+                <input value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} placeholder="City" />
+                <input value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} placeholder="State" />
+                <input value={newAddress.postal_code} onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })} placeholder="Postal code" />
+                <input value={newAddress.country} onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })} placeholder="Country" />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                  <input type="checkbox" checked={newAddress.is_default} onChange={(e) => setNewAddress({ ...newAddress, is_default: e.target.checked })} />
+                  Set as default
+                </label>
+              </div>
+            )}
           </div>
           
           <div className="card" style={{ marginBottom: '20px' }}>

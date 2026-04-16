@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.user_context import ensure_default_user
-from app.models import User, Address
+from app.models import User, Address, Order
 
 router = APIRouter(tags=["Users"])
 
@@ -128,6 +128,17 @@ def delete_user_address(addr_id: int, db: Session = Depends(get_db)):
     address = db.query(Address).filter(Address.id == addr_id, Address.user_id == user.id).first()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
+
+    has_order_reference = db.query(Order.id).filter(
+        Order.user_id == user.id,
+        Order.address_id == addr_id
+    ).first()
+    if has_order_reference:
+        raise HTTPException(
+            status_code=400,
+            detail="This address is linked to past orders and cannot be deleted. You can edit it or set another default address."
+        )
+
     db.delete(address)
     db.commit()
     return {"status": "success"}
