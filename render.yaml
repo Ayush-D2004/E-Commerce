@@ -17,3 +17,5 @@ services:
         sync: false
       - key: SEARCH_ARTIFACTS_DIR
         value: artifacts/search
+      - key: SEARCH_LEAN_MODE
+        value: "true"
