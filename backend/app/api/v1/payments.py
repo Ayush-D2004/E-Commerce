@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
-import razorpay
+try:
+    import razorpay
+except Exception:
+    razorpay = None
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,7 +19,7 @@ router = APIRouter()
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_mockkey123")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "mocksecret123")
 
-client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if razorpay else None
 
 class PaymentCreateRequest(BaseModel):
     order_id: int
@@ -51,7 +54,7 @@ def create_payment_order(req: PaymentCreateRequest, db: Session = Depends(get_db
     }
 
     try:
-        if "mock" in RAZORPAY_KEY_ID:
+        if "mock" in RAZORPAY_KEY_ID or client is None:
             razorpay_order = {"id": f"order_mock_{order.id}", "amount": amount_in_paise, "currency": "INR"}
         else:
             razorpay_order = client.order.create(data=razorpay_order_data)
@@ -86,7 +89,7 @@ def verify_payment(req: PaymentVerifyRequest, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == req.backend_order_id).first()
 
     # If using real keys, verify signature
-    if "mock" not in RAZORPAY_KEY_ID:
+    if "mock" not in RAZORPAY_KEY_ID and client is not None and razorpay is not None:
         try:
             client.utility.verify_payment_signature({
                 'razorpay_order_id': req.razorpay_order_id,

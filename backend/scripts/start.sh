@@ -9,8 +9,6 @@ if [ -z "${DATABASE_URL:-}" ]; then
 	exit 1
 fi
 
-# Try to upgrade. If it fails (usually because tables were manually seeded),
-# we stamp the DB as 'head' so Alembic knows it is up to date.
 if ! alembic upgrade head; then
 	echo "--- Alembic upgrade failed, attempting alembic stamp head ---"
 	alembic stamp head
