@@ -234,7 +234,6 @@ def get_random_products(limit: int = 24, db: Session = Depends(get_db)):
     products = (
         db.query(Product)
         .filter(Product.is_active == True)
-        .distinct(Product.id)
         .order_by(func.random())
         .limit(limit)
         .all()
@@ -263,7 +262,6 @@ def get_flash_deals(db: Session = Depends(get_db)):
     deals = (
         db.query(Product)
         .filter(Product.is_active == True)
-        .distinct(Product.id)
         .order_by(func.random())
         .limit(10)
         .all()

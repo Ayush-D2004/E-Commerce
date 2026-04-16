@@ -18,15 +18,24 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
+    Promise.allSettled([
       apiClient.get(`/products/${id}`),
       apiClient.get(`/products/${id}/recommendations`)
     ]).then(([resProduct, resRecs]) => {
-      setProduct(resProduct.data);
-      setRecommendations(resRecs.data || []);
-      setLoading(false);
+      if (resProduct.status === 'fulfilled') {
+        setProduct(resProduct.value.data);
+      } else {
+        setProduct(null);
+      }
+
+      if (resRecs.status === 'fulfilled') {
+        setRecommendations(resRecs.value.data || []);
+      } else {
+        setRecommendations([]);
+      }
     }).catch(err => {
       console.error(err);
+    }).finally(() => {
       setLoading(false);
     });
   }, [id]);

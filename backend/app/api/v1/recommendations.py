@@ -39,6 +39,8 @@ def get_similar_products(product_id: int, db: Session = Depends(get_db)):
     
     for rec in recommendations:
         target = rec.recommended_product
+        if not target:
+            continue
         if not target.is_active:
             continue
             

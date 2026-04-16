@@ -21,19 +21,24 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [dealsRes, recsRes, randomRes] = await Promise.all([
+        const [dealsRes, recsRes, randomRes] = await Promise.allSettled([
           apiClient.get('/products/flash-deals'),
           apiClient.get('/recommendations/personalized'),
           apiClient.get('/products/random', { params: { limit: 30 } })
         ]);
-        setFlashDeals(dedupeById(dealsRes.data || []));
-        setRandomProducts(dedupeById(randomRes.data || []));
 
-        if (recsRes.data && recsRes.data.items) {
-          setRecommendations(dedupeById(recsRes.data.items));
-          if (recsRes.data.type === 'fallback_trending') {
+        const deals = dealsRes.status === 'fulfilled' ? (dealsRes.value.data || []) : [];
+        const randomItems = randomRes.status === 'fulfilled' ? (randomRes.value.data || []) : [];
+        setFlashDeals(dedupeById(deals));
+        setRandomProducts(dedupeById(randomItems));
+
+        if (recsRes.status === 'fulfilled' && recsRes.value.data && recsRes.value.data.items) {
+          setRecommendations(dedupeById(recsRes.value.data.items));
+          if (recsRes.value.data.type === 'fallback_trending') {
             setRecTitle("Top Trending Products right now");
           }
+        } else {
+          setRecommendations([]);
         }
       } catch (err) {
         console.error(err);

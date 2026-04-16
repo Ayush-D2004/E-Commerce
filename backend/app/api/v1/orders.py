@@ -29,15 +29,10 @@ def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
     for item in req.items:
         product_id = str(item.product_id)
         if product_id.startswith("ext-"):
-            # Global product: skip local inventory, trust frontend price/name
-            subtotal += item.price * item.quantity
-            valid_items.append({
-                "product_id": None, # or store as string if DB permits (currently integer)
-                "product_name": f"[Global] {item.name}",
-                "unit_price": item.price,
-                "quantity": item.quantity,
-                "line_total": item.price * item.quantity
-            })
+            raise HTTPException(
+                status_code=400,
+                detail="External products cannot be checked out yet. Please add local catalog products only."
+            )
         else:
             # Local product: verify in database
             pid = int(product_id)

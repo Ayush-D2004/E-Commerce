@@ -37,9 +37,24 @@ def create_payment_order(req: PaymentCreateRequest, db: Session = Depends(get_db
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
         
-    # Check if a payment holds for it
-    if db.query(Payment).filter(Payment.order_id == order.id).first():
-        pass # Depending on flow, we might recreate or just return existing.
+    existing_payment = db.query(Payment).filter(Payment.order_id == order.id).first()
+    if existing_payment:
+        if existing_payment.status == "success":
+            return {
+                "razorpay_order_id": existing_payment.provider_order_id,
+                "amount": int(float(existing_payment.amount) * 100),
+                "currency": existing_payment.currency,
+                "key_id": RAZORPAY_KEY_ID,
+                "status": "already_paid"
+            }
+        if existing_payment.provider_order_id:
+            return {
+                "razorpay_order_id": existing_payment.provider_order_id,
+                "amount": int(float(existing_payment.amount) * 100),
+                "currency": existing_payment.currency,
+                "key_id": RAZORPAY_KEY_ID,
+                "status": existing_payment.status
+            }
 
     # 2. Razorpay demands amounts in paise (multiply by 100)
     amount_in_paise = int(float(order.total_amount) * 100)
@@ -87,6 +102,8 @@ def verify_payment(req: PaymentVerifyRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Payment record not found")
 
     order = db.query(Order).filter(Order.id == req.backend_order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
 
     # If using real keys, verify signature
     if "mock" not in RAZORPAY_KEY_ID and client is not None and razorpay is not None:
