@@ -102,7 +102,11 @@ def generate_recommendations(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate semantic recommendations from FAISS index")
-    parser.add_argument("--artifacts-dir", type=str, default="artifacts/search", help="Path to search artifacts")
+    # Calculate default artifacts path relative to backend root
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_artifacts_dir = os.path.join(backend_dir, "artifacts", "search")
+    
+    parser.add_argument("--artifacts-dir", type=str, default=default_artifacts_dir, help="Path to search artifacts")
     parser.add_argument("--top-k", type=int, default=15, help="Number of recommendations per product")
     parser.add_argument("--batch-size", type=int, default=500, help="Batch size for vector search and DB insert")
     

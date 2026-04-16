@@ -70,24 +70,32 @@ export default function HomePage() {
 
   const handlePointerDown = (event) => {
     if (!marqueeRef.current) return;
-    marqueeRef.current.classList.add('is-dragging');
     dragState.current.isDown = true;
+    dragState.current.didDrag = false;
     dragState.current.startX = event.clientX;
     dragState.current.scrollLeft = marqueeRef.current.scrollLeft;
-    marqueeRef.current.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event) => {
     if (!dragState.current.isDown || !marqueeRef.current) return;
     const walk = event.clientX - dragState.current.startX;
-    marqueeRef.current.scrollLeft = dragState.current.scrollLeft - walk;
+    if (Math.abs(walk) > 5) {
+      if (!dragState.current.didDrag) {
+        dragState.current.didDrag = true;
+        marqueeRef.current.classList.add('is-dragging');
+        marqueeRef.current.setPointerCapture(event.pointerId);
+      }
+      marqueeRef.current.scrollLeft = dragState.current.scrollLeft - walk;
+    }
   };
 
   const handlePointerUp = (event) => {
     if (!marqueeRef.current) return;
     dragState.current.isDown = false;
     marqueeRef.current.classList.remove('is-dragging');
-    marqueeRef.current.releasePointerCapture(event.pointerId);
+    if (marqueeRef.current.hasPointerCapture(event.pointerId)) {
+      marqueeRef.current.releasePointerCapture(event.pointerId);
+    }
   };
 
   const renderProductStrip = (products, title) => (

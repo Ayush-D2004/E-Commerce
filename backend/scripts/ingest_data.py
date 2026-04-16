@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.database import SessionLocal, Base, engine
-from app.models import Category, Product, ProductImage, Inventory, ProductRecommendation, Base
+from app.models import Category, Product, ProductImage, Inventory, ProductRecommendation
 
 # Set seeds
 random.seed(42)
@@ -64,6 +64,8 @@ def normalize_text(val, default: str | None = None) -> str | None:
     return text
 
 def ingest_data():
+    print("Ensuring tables exist...")
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     print("Clearing old product data...")
     # Clean tables (except Users/Addresses/Orders for safety)
@@ -75,7 +77,9 @@ def ingest_data():
     db.commit()
     
     print("Loading dataset...")
-    df_products = read_csv_safe('../data/ecommerce_dataset.csv').dropna(subset=['title', 'price'])
+    dataset_path = os.path.join(os.path.dirname(__file__), "../../data/ecommerce_dataset.csv")
+    print(f"Loading dataset from {dataset_path}...")
+    df_products = read_csv_safe(dataset_path).dropna(subset=['title', 'price'])
     print(f"ecommerce_dataset.csv holds {len(df_products)} rows.")
 
     df_p = df_products.copy()

@@ -1,26 +1,32 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scalercart-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/scaler_ecommerce.db:/app/scaler_ecommerce.db
+      - ./backend/artifacts:/app/artifacts
     environment:
-      POSTGRES_USER: scaler_user
-      POSTGRES_PASSWORD: scaler_password
-      POSTGRES_DB: scaler_ecommerce
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - DATABASE_URL=sqlite:///./scaler_ecommerce.db
+      - SEARCH_ARTIFACTS_DIR=/app/artifacts/search
+    restart: always
 
-  redis:
-    image: redis:7
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scalercart-ui
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
 
 volumes:
-  postgres_data:
-  redis_data:
+  backend_data:
+  artifacts_data:
