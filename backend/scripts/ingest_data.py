@@ -68,13 +68,23 @@ def ingest_data():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     print("Clearing old product data...")
-    # Clean tables (except Users/Addresses/Orders for safety)
-    db.query(ProductRecommendation).delete()
-    db.query(Inventory).delete()
-    db.query(ProductImage).delete()
-    db.query(Product).delete()
-    db.query(Category).delete()
-    db.commit()
+    # Clean tables safely, resetting auto-increment counters for Postgres
+    try:
+        from sqlalchemy import text
+        if "postgres" in str(engine.url):
+            db.execute(text("TRUNCATE TABLE categories RESTART IDENTITY CASCADE;"))
+            db.execute(text("TRUNCATE TABLE products RESTART IDENTITY CASCADE;"))
+        else:
+            db.query(ProductRecommendation).delete()
+            db.query(Inventory).delete()
+            db.query(ProductImage).delete()
+            db.query(Product).delete()
+            db.query(Category).delete()
+        db.commit()
+    except Exception as e:
+        print(f"Notice: manual cleanup required or tables empty: {e}")
+        db.rollback()
+
     
     print("Loading dataset...")
     dataset_path = os.path.join(os.path.dirname(__file__), "../../data/ecommerce_dataset.csv")
@@ -98,8 +108,11 @@ def ingest_data():
     for c in db.query(Category).all():
         category_id_map[c.name] = c.id
         
-    print("Inserting products via Pandas...")
+    print("Inserting products via Pandas (Batch committing every 500 rows)...")
     
+    BATCH_SIZE = 500
+    count = 0
+
     # Insert Products.csv with clean schema
     for idx, row in df_p.iterrows():
         cat_name = normalize_text(row.get('category'), 'General') or 'General'
@@ -113,7 +126,11 @@ def ingest_data():
         description = normalize_text(row.get('description'), 'No description') or 'No description'
         rating = parse_rating(row.get('rating'))
 
+        # Strip non-numeric prefixes like 'ID_' to keep IDs as pure integers
+        product_id = int(re.sub(r'[^0-9]', '', str(row['product_id'])))
+        
         p = Product(
+            id=product_id,
             category_id=cid,
             name=str(row['title'])[:250],
             slug=f"{slug}-{random.randint(1000,9999)}",
@@ -124,14 +141,19 @@ def ingest_data():
             rating=rating,
             review_count=random.randint(5, 500)
         )
-        db.add(p)
-        db.flush()
 
         image_url = clean_image_url(normalize_text(row.get('image_url')))
         if image_url:
-            db.add(ProductImage(product_id=p.id, image_url=image_url))
+            p.images.append(ProductImage(image_url=image_url))
 
-        db.add(Inventory(product_id=p.id, stock_qty=random.randint(10, 100)))
+        p.inventory = Inventory(stock_qty=random.randint(10, 100))
+        
+        db.add(p)
+        
+        count += 1
+        if count % BATCH_SIZE == 0:
+            db.commit()
+            print(f"Batch committed: {count}/{len(df_p)} products")
 
     db.commit()
     print(f"Successfully inserted {len(df_p)} products!")

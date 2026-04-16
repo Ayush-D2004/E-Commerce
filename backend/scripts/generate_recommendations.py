@@ -41,6 +41,10 @@ def generate_recommendations(args):
         db.execute(text("DELETE FROM product_recommendations"))
         db.commit()
 
+        print("Validating products in database...")
+        valid_pids = {r[0] for r in db.query(Product.id).all()}
+        print(f"Verified {len(valid_pids)} valid products in database.")
+
         print(f"Generating recommendations in batches of {batch_size}...")
         
         # Optimization: Process in batches to handle 33k+ rows efficiently
@@ -68,8 +72,8 @@ def generate_recommendations(args):
                         
                     neighbor_pid = int(id_map[neighbor_idx])
                     
-                    # Skip self
-                    if neighbor_pid == pid:
+                    # Skip self or missing products
+                    if neighbor_pid == pid or neighbor_pid not in valid_pids or pid not in valid_pids:
                         continue
                         
                     recommendations_to_add.append({
