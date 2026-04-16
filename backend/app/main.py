@@ -12,9 +12,8 @@ async def lifespan(app: FastAPI):
     """Load heavy ML artifacts in a background thread so the event loop isn't blocked."""
     print("--- [APPLICATION STARTING] ---")
     loop = asyncio.get_event_loop()
-    # No await here if we want it to truly be background, 
-    # but for debugging we'll keep it as is to see the logs.
-    await loop.run_in_executor(None, load_search_artifacts)
+    # No await here to allow the server to start immediately
+    loop.run_in_executor(None, load_search_artifacts)
     print("--- [READY FOR TRAFFIC] ---")
     yield
 

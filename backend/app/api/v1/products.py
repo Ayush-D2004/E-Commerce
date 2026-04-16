@@ -41,7 +41,7 @@ def _best_field_match(term: str):
         if not choices:
             continue
         matched = process.extractOne(term, choices, scorer=fuzz.WRatio)
-        if matched and matched[1] >= 80:
+        if matched and matched[1] >= 70:
             return {
                 "field": field,
                 "value": matched[0],
@@ -70,8 +70,10 @@ def _semantic_candidates(term: str, top_k: int = 160):
         return []
 
     try:
-        # normalize_embeddings=True already produces unit-norm vectors; no manual re-norm needed
         query_emb = artifacts.encoder.encode([term], normalize_embeddings=True).astype("float32")
+        norm = np.linalg.norm(query_emb, axis=1, keepdims=True)
+        norm[norm == 0] = 1.0
+        query_emb = query_emb / norm
         scores, indices = artifacts.faiss_index.search(query_emb, top_k)
         result = []
         for score, idx in zip(scores[0], indices[0]):
@@ -83,13 +85,9 @@ def _semantic_candidates(term: str, top_k: int = 160):
     except Exception:
         return []
 
-def apply_category_filter(query, category_value: str, already_joined: bool = False):
-    """Apply a category filter. Pass already_joined=True to skip the outerjoin
-    when Category has already been joined earlier in the query chain."""
+def apply_category_filter(query, category_value: str):
     normalized = normalize_category_value(category_value)
-    if not already_joined:
-        query = query.outerjoin(Category)
-    return query.filter(
+    return query.outerjoin(Category).filter(
         or_(
             normalize_sql(Category.slug) == normalized,
             normalize_sql(Category.name) == normalized,
@@ -122,16 +120,12 @@ def get_products(
     correction_confidence = None
     correction_source = None
     priority_id_scores = {}
-    # Track whether Category has already been joined to avoid duplicate joins
-    category_joined = False
-
+    
     if category_id:
         query = query.filter(Product.category_id == category_id)
     category_value = standard_category or category
     if category_value:
-        query = apply_category_filter(query, category_value, already_joined=False)
-        category_joined = True
-
+        query = apply_category_filter(query, category_value)
     if term:
         match = _best_field_match(term)
         effective_term = term
@@ -158,11 +152,7 @@ def get_products(
 
         if not priority_id_scores:
             normalized_term = normalize_category_value(effective_term)
-            # Only join Category if not already joined
-            if not category_joined:
-                query = query.outerjoin(Category)
-                category_joined = True
-            query = query.filter(
+            query = query.outerjoin(Category).filter(
                 or_(
                     Product.name.ilike(f"%{effective_term}%"),
                     Product.description.ilike(f"%{effective_term}%"),
@@ -172,15 +162,13 @@ def get_products(
                     normalize_sql(Product.sub_category).like(f"%{normalized_term}%")
                 )
             )
-
     if brand:
         query = query.filter(Product.brand.ilike(f"%{brand}%"))
     if min_price is not None:
         query = query.filter(Product.base_price >= min_price)
     if max_price is not None:
         query = query.filter(Product.base_price <= max_price)
-
-    # sort=None or sort='relevance' both fall through to the semantic/rating ordering
+        
     if sort == "price_asc":
         query = query.order_by(Product.base_price.asc())
     elif sort == "price_desc":
@@ -190,21 +178,15 @@ def get_products(
     elif sort == "newest":
         query = query.order_by(Product.created_at.desc())
     else:
-        # relevance / default
         if term and priority_id_scores:
             ranked_pairs = sorted(priority_id_scores.items(), key=lambda x: x[1], reverse=True)[:800]
-            # SQLAlchemy 2.x-compatible: pass whens as a list of 2-tuples (condition, result)
             priority_case = case(
                 *[(Product.id == pid, score) for pid, score in ranked_pairs],
-                else_=0.0
+                else_=0
             )
             query = query.order_by(priority_case.desc(), Product.rating.desc(), Product.review_count.desc())
         elif term:
             normalized_term = normalize_category_value(term)
-            # Join Category for ordering if not already joined
-            if not category_joined:
-                query = query.outerjoin(Category)
-                category_joined = True
             priority_score = case(
                 (normalize_sql(Product.sub_category).like(f"%{normalized_term}%"), 3),
                 (normalize_sql(Category.name).like(f"%{normalized_term}%"), 2),
@@ -218,9 +200,10 @@ def get_products(
 
     total = query.count()
     products = query.offset((page - 1) * page_size).limit(page_size).all()
-
+    
     items = []
     for p in products:
+        # Prepopulate stock status for listing
         in_stock = p.inventory.stock_qty > 0 if p.inventory else False
         image_url = p.images[0].image_url if p.images else None
         items.append(ProductSchemaBase(

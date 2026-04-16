@@ -60,19 +60,14 @@ def _safe_int(value: Any) -> int | None:
 
 
 def load_search_artifacts() -> SearchArtifacts:
-    print("--- [INITIALIZING SEARCH ENGINE] ---")
     artifacts_dir = Path(os.getenv("SEARCH_ARTIFACTS_DIR", "artifacts/search"))
-    lean_mode = os.getenv("SEARCH_LEAN_MODE", "false").lower() == "true"
-    
     state = SearchArtifacts(artifact_dir=str(artifacts_dir))
 
     if not artifacts_dir.exists():
-        print(f"ERROR: Artifacts directory not found: {artifacts_dir}")
         state.errors.append(f"Artifacts directory not found: {artifacts_dir}")
         _set_state(state)
         return SEARCH_ARTIFACTS
 
-    print(f"Loading metadata from {artifacts_dir}...")
     manifest = _safe_json_load(artifacts_dir / "artifact_manifest.json", {})
     labels = _safe_json_load(artifacts_dir / "lexical_labels.json", {})
     postings = _safe_json_load(artifacts_dir / "lexical_postings.json", {})
@@ -129,25 +124,15 @@ def load_search_artifacts() -> SearchArtifacts:
                     raise RuntimeError("No valid integer IDs in semantic id mapping")
 
                 state.semantic_model_name = manifest.get("semantic_model_name", "all-MiniLM-L6-v2")
-                
-                if lean_mode:
-                    print("!!! LEAN MODE ENABLED: Skipping heavy ML model to save RAM !!!")
-                    state.errors.append("Lean mode active: AI Re-ranking disabled to save memory.")
-                elif SentenceTransformer is None:
-                    print("WARNING: sentence-transformers not installed. Skipping AI model.")
+                if SentenceTransformer is None:
                     state.errors.append("sentence-transformers not installed. Semantic reranking disabled.")
                 else:
-                    print(f"Loading AI model: {state.semantic_model_name} (This may take 45s)...")
                     state.encoder = SentenceTransformer(state.semantic_model_name)
-                    print("AI model loaded successfully!")
             except Exception as exc:
-                print(f"ERROR: Failed loading semantic artifacts: {exc}")
                 state.errors.append(f"Failed loading semantic artifacts: {exc}")
         else:
-            print("Notice: Semantic files missing. Re-ranking disabled.")
             state.errors.append("Semantic files missing. Semantic reranking disabled.")
 
-    print(f"Search engine initialized successfully (Total Products: {len(state.id_to_category)})")
     state.loaded = True
     _set_state(state)
     return SEARCH_ARTIFACTS
