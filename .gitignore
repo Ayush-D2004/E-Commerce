@@ -1,8 +1,36 @@
-.gemini/
-.env   
-venv
-__pycache__
-.vscode
-*.zip
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Environment variables — NEVER commit real .env files
+.env
+.env.local
+
+# Databases (SQLite binary — seed Postgres remotely instead)
 *.db
-*.sqlite
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Large ML artifacts (not tracked in Git — mount via Docker volume or pre-download)
+backend/artifacts/search/semantic_svd.joblib
+backend/artifacts/search/semantic_vectorizer.joblib
+backend/artifacts/search/search_artifacts_bundle.zip
+*.zip
+
+# IDEs & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project specific
+.gemini/
+.serena/
