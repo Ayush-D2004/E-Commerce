@@ -2,22 +2,10 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.venv/
 venv/
-ENV/
 
-# Environment variables — NEVER commit real .env files
 .env
-.env.local
-
-# Databases (SQLite binary — seed Postgres remotely instead)
 *.db
-
-# Node / Frontend
-node_modules/
-dist/
-dist-ssr/
-*.local
 
 # Large ML artifacts (not tracked in Git — mount via Docker volume or pre-download)
 backend/artifacts/search/semantic_svd.joblib
