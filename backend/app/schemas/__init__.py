@@ -10,6 +10,7 @@ class ProductSchemaBase(BaseModel):
     rating: float
     review_count: int
     in_stock: bool
+    sub_category: Optional[str] = None
     image_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,6 +33,7 @@ class ProductSpecSchema(BaseModel):
 class ProductDetailSchema(ProductSchemaBase):
     description: str
     brand: Optional[str]
+    sub_category: Optional[str] = None
     stock_qty: int
     images: List[ProductImageSchema]
     specs: List[ProductSpecSchema]
@@ -43,6 +45,10 @@ class ProductListResponse(BaseModel):
     page: int
     page_size: int
     total: int
+    did_you_mean: Optional[str] = None
+    applied_correction: bool = False
+    correction_confidence: Optional[float] = None
+    correction_source: Optional[str] = None
 
 class CartItemSchema(BaseModel):
     id: int

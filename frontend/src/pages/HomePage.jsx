@@ -141,6 +141,10 @@ export default function HomePage() {
                     </div>
                     <div className="frame-meta">
                       <span className="frame-name">{sanitizeName(p.name)}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <Star size={12} fill="var(--amz-yellow)" color="var(--amz-yellow)" />
+                        <span style={{ fontSize: '12px' }}>{p.rating?.toFixed(1) || '4.5'}</span>
+                      </div>
                       <span className="frame-price">₹{formatPrice(p.price)}</span>
                     </div>
                   </Link>
@@ -154,6 +158,10 @@ export default function HomePage() {
                     </div>
                     <div className="frame-meta">
                       <span className="frame-name">{sanitizeName(p.name)}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                        <Star size={12} fill="var(--amz-yellow)" color="var(--amz-yellow)" />
+                        <span style={{ fontSize: '12px' }}>{p.rating?.toFixed(1) || '4.5'}</span>
+                      </div>
                       <span className="frame-price">₹{formatPrice(p.price)}</span>
                     </div>
                   </Link>

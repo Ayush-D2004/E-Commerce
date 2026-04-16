@@ -53,6 +53,7 @@ class Product(Base):
     slug = Column(String(280), unique=True, nullable=False)
     description = Column(Text, nullable=False)
     brand = Column(String(120))
+    sub_category = Column(String(140))
     base_price = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(3), default="INR", nullable=False)
     rating = Column(Numeric(2, 1), default=0, nullable=False)

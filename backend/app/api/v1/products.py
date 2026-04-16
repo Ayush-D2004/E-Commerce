@@ -1,9 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 import re
 from typing import List, Optional
+import numpy as np
+
+try:
+    from rapidfuzz import fuzz, process
+except Exception:
+    fuzz = None
+    process = None
+
 from app.core.database import get_db
+from app.core.search_artifacts import SEARCH_ARTIFACTS
 from app.models import Product, Category, ProductImage, ProductSpec, Inventory
 from app.schemas import ProductDetailSchema, ProductListResponse, ProductSchemaBase, CategorySchema
 
@@ -21,12 +30,70 @@ def normalize_sql(col):
     normalized = func.replace(normalized, " ", "")
     return normalized
 
-def apply_category_filter(query, category_value: str):
+
+def _best_field_match(term: str):
+    if not process or not fuzz:
+        return None
+
+    priority_fields = ["sub_category", "category", "brand"]
+    for field in priority_fields:
+        choices = SEARCH_ARTIFACTS.labels.get(field, [])
+        if not choices:
+            continue
+        matched = process.extractOne(term, choices, scorer=fuzz.WRatio)
+        if matched and matched[1] >= 80:
+            return {
+                "field": field,
+                "value": matched[0],
+                "score": float(matched[1])
+            }
+    return None
+
+
+def _safe_int(value):
+    try:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        text = str(value).strip()
+        if text.isdigit():
+            return int(text)
+        return None
+    except Exception:
+        return None
+
+
+def _semantic_candidates(term: str, top_k: int = 160):
+    artifacts = SEARCH_ARTIFACTS
+    if not artifacts.loaded or artifacts.faiss_index is None or artifacts.encoder is None or artifacts.id_map is None:
+        return []
+
+    try:
+        # normalize_embeddings=True already produces unit-norm vectors; no manual re-norm needed
+        query_emb = artifacts.encoder.encode([term], normalize_embeddings=True).astype("float32")
+        scores, indices = artifacts.faiss_index.search(query_emb, top_k)
+        result = []
+        for score, idx in zip(scores[0], indices[0]):
+            if idx < 0:
+                continue
+            product_id = int(artifacts.id_map[idx])
+            result.append((product_id, float(score)))
+        return result
+    except Exception:
+        return []
+
+def apply_category_filter(query, category_value: str, already_joined: bool = False):
+    """Apply a category filter. Pass already_joined=True to skip the outerjoin
+    when Category has already been joined earlier in the query chain."""
     normalized = normalize_category_value(category_value)
-    return query.join(Category).filter(
+    if not already_joined:
+        query = query.outerjoin(Category)
+    return query.filter(
         or_(
             normalize_sql(Category.slug) == normalized,
-            normalize_sql(Category.name) == normalized
+            normalize_sql(Category.name) == normalized,
+            normalize_sql(Product.sub_category) == normalized
         )
     )
 
@@ -50,21 +117,70 @@ def get_products(
     db: Session = Depends(get_db)
 ):
     query = db.query(Product).filter(Product.is_active == True)
-    
+    did_you_mean = None
+    applied_correction = False
+    correction_confidence = None
+    correction_source = None
+    priority_id_scores = {}
+    # Track whether Category has already been joined to avoid duplicate joins
+    category_joined = False
+
     if category_id:
         query = query.filter(Product.category_id == category_id)
     category_value = standard_category or category
     if category_value:
-        query = apply_category_filter(query, category_value)
+        query = apply_category_filter(query, category_value, already_joined=False)
+        category_joined = True
+
     if term:
-        query = query.filter(Product.name.ilike(f"%{term}%") | Product.description.ilike(f"%{term}%") | Product.brand.ilike(f"%{term}%"))
+        match = _best_field_match(term)
+        effective_term = term
+        lexical_ids = []
+        if match:
+            correction_source = match["field"]
+            correction_confidence = round(match["score"], 2)
+            if normalize_category_value(match["value"]) != normalize_category_value(term):
+                did_you_mean = match["value"]
+                applied_correction = True
+                effective_term = match["value"]
+            postings_map = SEARCH_ARTIFACTS.postings.get(match["field"], {})
+            lexical_ids = [pid for pid in (_safe_int(x) for x in postings_map.get(match["value"], [])) if pid is not None]
+            for pid in lexical_ids:
+                priority_id_scores[pid] = max(priority_id_scores.get(pid, 0.0), 3.0)
+
+        semantic = _semantic_candidates(effective_term, top_k=160)
+        for pid, semantic_score in semantic:
+            blended = 1.2 + semantic_score
+            priority_id_scores[pid] = max(priority_id_scores.get(pid, 0.0), blended)
+
+        if priority_id_scores:
+            query = query.filter(Product.id.in_(list(priority_id_scores.keys())))
+
+        if not priority_id_scores:
+            normalized_term = normalize_category_value(effective_term)
+            # Only join Category if not already joined
+            if not category_joined:
+                query = query.outerjoin(Category)
+                category_joined = True
+            query = query.filter(
+                or_(
+                    Product.name.ilike(f"%{effective_term}%"),
+                    Product.description.ilike(f"%{effective_term}%"),
+                    Product.brand.ilike(f"%{effective_term}%"),
+                    normalize_sql(Category.name).like(f"%{normalized_term}%"),
+                    normalize_sql(Category.slug).like(f"%{normalized_term}%"),
+                    normalize_sql(Product.sub_category).like(f"%{normalized_term}%")
+                )
+            )
+
     if brand:
         query = query.filter(Product.brand.ilike(f"%{brand}%"))
     if min_price is not None:
         query = query.filter(Product.base_price >= min_price)
     if max_price is not None:
         query = query.filter(Product.base_price <= max_price)
-        
+
+    # sort=None or sort='relevance' both fall through to the semantic/rating ordering
     if sort == "price_asc":
         query = query.order_by(Product.base_price.asc())
     elif sort == "price_desc":
@@ -74,14 +190,37 @@ def get_products(
     elif sort == "newest":
         query = query.order_by(Product.created_at.desc())
     else:
-        query = query.order_by(Product.rating.desc(), Product.review_count.desc())
+        # relevance / default
+        if term and priority_id_scores:
+            ranked_pairs = sorted(priority_id_scores.items(), key=lambda x: x[1], reverse=True)[:800]
+            # SQLAlchemy 2.x-compatible: pass whens as a list of 2-tuples (condition, result)
+            priority_case = case(
+                *[(Product.id == pid, score) for pid, score in ranked_pairs],
+                else_=0.0
+            )
+            query = query.order_by(priority_case.desc(), Product.rating.desc(), Product.review_count.desc())
+        elif term:
+            normalized_term = normalize_category_value(term)
+            # Join Category for ordering if not already joined
+            if not category_joined:
+                query = query.outerjoin(Category)
+                category_joined = True
+            priority_score = case(
+                (normalize_sql(Product.sub_category).like(f"%{normalized_term}%"), 3),
+                (normalize_sql(Category.name).like(f"%{normalized_term}%"), 2),
+                (normalize_sql(Category.slug).like(f"%{normalized_term}%"), 2),
+                (normalize_sql(Product.brand).like(f"%{normalized_term}%"), 1),
+                else_=0
+            )
+            query = query.order_by(priority_score.desc(), Product.rating.desc(), Product.review_count.desc())
+        else:
+            query = query.order_by(Product.rating.desc(), Product.review_count.desc())
 
     total = query.count()
     products = query.offset((page - 1) * page_size).limit(page_size).all()
-    
+
     items = []
     for p in products:
-        # Prepopulate stock status for listing
         in_stock = p.inventory.stock_qty > 0 if p.inventory else False
         image_url = p.images[0].image_url if p.images else None
         items.append(ProductSchemaBase(
@@ -92,6 +231,7 @@ def get_products(
             rating=float(p.rating),
             review_count=p.review_count,
             in_stock=in_stock,
+            sub_category=p.sub_category,
             image_url=image_url
         ))
 
@@ -99,7 +239,11 @@ def get_products(
         items=items,
         page=page,
         page_size=page_size,
-        total=total
+        total=total,
+        did_you_mean=did_you_mean,
+        applied_correction=applied_correction,
+        correction_confidence=correction_confidence,
+        correction_source=correction_source
     )
 
 @router.get("/products/random", response_model=List[ProductSchemaBase])
@@ -125,6 +269,7 @@ def get_random_products(limit: int = 24, db: Session = Depends(get_db)):
             rating=float(p.rating),
             review_count=p.review_count,
             in_stock=in_stock,
+            sub_category=p.sub_category,
             image_url=image_url
         ))
     return items
@@ -153,6 +298,7 @@ def get_flash_deals(db: Session = Depends(get_db)):
             rating=float(p.rating),
             review_count=p.review_count,
             in_stock=in_stock,
+            sub_category=p.sub_category,
             image_url=image_url
         ))
     return items
@@ -176,6 +322,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         in_stock=in_stock,
         description=p.description,
         brand=p.brand,
+        sub_category=p.sub_category,
         stock_qty=stock_qty,
         images=[{"url": img.image_url, "alt_text": img.alt_text} for img in p.images],
         specs=[{"key": spec.spec_key, "value": spec.spec_value} for spec in p.specs],
@@ -206,6 +353,7 @@ def get_product_recommendations(product_id: int, db: Session = Depends(get_db)):
             rating=float(p.rating),
             review_count=p.review_count,
             in_stock=in_stock,
+            sub_category=p.sub_category,
             image_url=image_url
         ))
     return items

@@ -157,12 +157,20 @@ def cancel_order(order_id: int, req: CancelOrderRequest, db: Session = Depends(g
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    
+
     if order.status != 'placed':
         raise HTTPException(status_code=400, detail="Only placed orders can be cancelled")
-        
+
     order.status = 'cancelled'
 
+    # Restore inventory for each local product in the order
+    for oi in order.items:
+        if oi.product_id is not None:  # skip global/external items
+            inv = db.query(Inventory).filter(Inventory.product_id == oi.product_id).with_for_update().first()
+            if inv:
+                inv.stock_qty += oi.quantity
+
+    # Commit status change + inventory restore + notification in ONE transaction
     notification = Notification(
         user_id=user_id,
         type="order_cancelled",
@@ -172,7 +180,7 @@ def cancel_order(order_id: int, req: CancelOrderRequest, db: Session = Depends(g
     )
     db.add(notification)
     db.commit()
-    
+
     return {"status": "success", "message": "Order cancelled successfully"}
 
 @router.post("/orders/{order_id}/return")
@@ -195,6 +203,7 @@ def return_or_replace_order(order_id: int, req: ReturnOrderRequest, db: Session 
     if req.other_reason:
         reason = f"{reason} ({req.other_reason})"
 
+    # Commit status change + notification in ONE transaction
     notification = Notification(
         user_id=user_id,
         type=f"order_{action}_requested",

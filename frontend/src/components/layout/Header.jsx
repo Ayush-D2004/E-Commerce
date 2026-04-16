@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, Bell } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, Bell, MapPin } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import apiClient from '../../apiClient';
 
@@ -9,6 +9,7 @@ export default function Header() {
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const [searchTerm, setSearchTerm] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [addressLabel, setAddressLabel] = useState('Select address');
   const navigate = useNavigate();
   const location = useLocation();
   const activeCategory = useMemo(() => {
@@ -39,6 +40,23 @@ export default function Header() {
     loadNotifications();
   }, [location.pathname]);
 
+  useEffect(() => {
+    const loadAddress = async () => {
+      try {
+        const { data } = await apiClient.get('/users/me/addresses');
+        const addresses = data || [];
+        const defaultAddress = addresses.find((addr) => addr.is_default) || addresses[0];
+        if (defaultAddress) {
+          const city = defaultAddress.city || 'your city';
+          setAddressLabel(city);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadAddress();
+  }, []);
+
   return (
     <div className="sticky-shell">
       <header className="site-header" style={{ backgroundColor: 'var(--amz-navy)', color: 'white', padding: '10px 0' }}>
@@ -46,6 +64,18 @@ export default function Header() {
           
           <Link to="/" style={{ fontSize: '24px', fontWeight: 'bold' }}>
             Scaler<span style={{ color: 'var(--amz-yellow)' }}>Cart</span>
+          </Link>
+
+          <Link
+            to="/addresses"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', color: 'inherit', textDecoration: 'none' }}
+            title="Update delivery address"
+          >
+            <MapPin size={16} />
+            <div style={{ display: 'flex', flexDirection: 'column', fontSize: '11px' }}>
+              <span style={{ color: '#ddd' }}>Delivering to</span>
+              <span style={{ fontWeight: 'bold', fontSize: '12px' }}>{addressLabel}</span>
+            </div>
           </Link>
           
           <form 

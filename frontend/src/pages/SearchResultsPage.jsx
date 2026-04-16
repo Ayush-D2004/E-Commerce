@@ -24,12 +24,11 @@ export default function SearchResultsPage() {
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    // Reset on param change
+    // Reset on param change OR mode change
     setProducts([]);
     setPage(1);
     setGlobalOffset(0);
-    setIsGlobalMode(false);
-  }, [searchParams]);
+  }, [searchParams, isGlobalMode]);
 
   useEffect(() => {
     if (debounceRef.current) {
@@ -59,10 +58,13 @@ export default function SearchResultsPage() {
         params: {
           term: query || undefined,
           category: category || undefined,
-          standard_category: category || undefined,
+          // standard_category removed – backend uses category as fallback
           min_price: searchParams.get('min_price') || undefined,
           max_price: searchParams.get('max_price') || undefined,
-          sort: searchParams.get('sort') || undefined,
+          // only send sort if it isn't the default 'relevance'
+          sort: (searchParams.get('sort') && searchParams.get('sort') !== 'relevance')
+            ? searchParams.get('sort')
+            : undefined,
           page: isNew ? 1 : page,
           page_size: 20
         }

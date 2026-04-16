@@ -120,7 +120,7 @@ def get_personalized(db: Session = Depends(get_db), user_id: int = 1):
         
         final_products = []
         for pid, _ in sorted_targets:
-            p = db.query(Product).get(pid)
+            p = db.get(Product, pid)
             if p:
                 final_products.append(p)
                 

@@ -1,8 +1,19 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import products, cart, orders, recommendations, payments, users, wishlist, notifications
+from app.core.search_artifacts import load_search_artifacts
 
-app = FastAPI(title="Scaler Ecommerce API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load heavy ML artifacts in a thread so the event loop isn't blocked."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, load_search_artifacts)
+    yield
+
+app = FastAPI(title="Scaler Ecommerce API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +31,7 @@ app.include_router(payments.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(wishlist.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+
 
 @app.get("/api/v1/health")
 async def health_check():

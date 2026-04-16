@@ -1,0 +1,18 @@
+{
+  "artifact_version": "1.0",
+  "created_at": "2026-04-16T06:48:12.216490Z",
+  "row_count": 33160,
+  "files": [
+    "artifact_manifest.json",
+    "lexical_labels.json",
+    "lexical_postings.json",
+    "product_metadata.json",
+    "semantic_faiss.index",
+    "semantic_vectorizer.joblib",
+    "semantic_svd.joblib",
+    "id_mapping.json"
+  ],
+  "index_type": "faiss_index_flat_ip",
+  "semantic_encoder": "tfidf+svd",
+  "semantic_dim": 256
+}
