@@ -32,20 +32,38 @@ export default function AddressBookPage() {
     loadAddresses();
   }, []);
 
+  const normalizePayload = (payload) => ({
+    line1: (payload.line1 || '').trim(),
+    line2: payload.line2 ? payload.line2.trim() : null,
+    city: (payload.city || '').trim(),
+    state: (payload.state || '').trim(),
+    postal_code: (payload.postal_code || '').trim(),
+    country: (payload.country || '').trim() || 'India',
+    is_default: !!payload.is_default
+  });
+
+  const parseErrorMessage = (err, fallback) => {
+    const detail = err?.response?.data?.detail;
+    if (Array.isArray(detail)) return detail.map((d) => d.msg).join(', ');
+    if (typeof detail === 'string') return detail;
+    return fallback;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = normalizePayload(form);
       if (editingId) {
-        const { data } = await apiClient.put(`/users/me/addresses/${editingId}`, form);
+        const { data } = await apiClient.put(`/users/me/addresses/${editingId}`, payload);
         setAddresses((prev) => prev.map((addr) => (addr.id === editingId ? data : addr)));
       } else {
-        const { data } = await apiClient.post('/users/me/addresses', form);
+        const { data } = await apiClient.post('/users/me/addresses', payload);
         setAddresses((prev) => [data, ...prev]);
       }
       setForm(emptyForm);
       setEditingId(null);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to save address');
+      alert(parseErrorMessage(err, 'Failed to save address'));
     }
   };
 
@@ -67,16 +85,16 @@ export default function AddressBookPage() {
       await apiClient.delete(`/users/me/addresses/${addrId}`);
       setAddresses((prev) => prev.filter((addr) => addr.id !== addrId));
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to delete address');
+      alert(parseErrorMessage(err, 'Failed to delete address'));
     }
   };
 
   const handleSetDefault = async (addr) => {
     try {
-      const { data } = await apiClient.put(`/users/me/addresses/${addr.id}`, { is_default: true });
-      setAddresses((prev) => prev.map((item) => (item.id === addr.id ? data : { ...item, is_default: false })));
+      await apiClient.put(`/users/me/addresses/${addr.id}`, { is_default: true });
+      await loadAddresses();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to set default address');
+      alert(parseErrorMessage(err, 'Failed to set default address'));
     }
   };
 

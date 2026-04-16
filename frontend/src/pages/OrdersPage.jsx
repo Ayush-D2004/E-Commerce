@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '../apiClient';
+import { getProductImageUrl } from '../utils/productUtils';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -123,8 +124,18 @@ export default function OrdersPage() {
                     <strong>Items</strong>
                     <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {order.items.map((item, index) => (
-                        <div key={`${order.order_id}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                          <span>{item.product_name} (x{item.quantity})</span>
+                        <div key={`${order.order_id}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img
+                              src={getProductImageUrl(item.image_url, item.product_id || `${order.order_id}-${index}`)}
+                              alt={item.product_name}
+                              onError={(e) => {
+                                e.currentTarget.src = `https://picsum.photos/seed/${item.product_id || `${order.order_id}-${index}`}/80`;
+                              }}
+                              style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '4px', backgroundColor: '#f8f8f8' }}
+                            />
+                            <span>{item.product_name} (x{item.quantity})</span>
+                          </div>
                           <span>₹{item.line_total.toLocaleString()}</span>
                         </div>
                       ))}

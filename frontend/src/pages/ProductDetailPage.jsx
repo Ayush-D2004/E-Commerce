@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../features/cart/cartSlice';
 import apiClient from '../apiClient';
@@ -219,7 +219,7 @@ export default function ProductDetailPage() {
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>Customers who viewed this item also viewed</h2>
           <div style={{ display: 'flex', overflowX: 'auto', gap: '20px', paddingBottom: '10px' }}>
             {recommendations.map(p => (
-              <a href={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
+              <Link to={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
                     <img src={getProductImageUrl(p.image_url, p.id)} alt={p.name} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/180`; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
@@ -229,7 +229,7 @@ export default function ProductDetailPage() {
                   <span style={{ fontSize: '12px', color: '#007185' }}>({p.review_count})</span>
                 </div>
                 <span style={{ fontSize: '18px', color: '#B12704', marginTop: '5px' }}>₹{formatPrice(p.price)}</span>
-              </a>
+              </Link>
             ))}
           </div>
         </div>

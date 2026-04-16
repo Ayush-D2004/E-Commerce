@@ -120,6 +120,11 @@ def get_orders(db: Session = Depends(get_db)):
             OrderItemSchema(
                 product_id=oi.product_id,
                 product_name=oi.product_name_snapshot,
+                image_url=(
+                    prod.images[0].image_url
+                    if (prod := db.query(Product).filter(Product.id == oi.product_id).first()) and prod.images
+                    else None
+                ),
                 unit_price=float(oi.unit_price_snapshot),
                 quantity=oi.quantity,
                 line_total=float(oi.line_total)

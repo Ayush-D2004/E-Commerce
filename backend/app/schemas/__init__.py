@@ -113,6 +113,7 @@ class CheckoutRequest(BaseModel):
 class OrderItemSchema(BaseModel):
     product_id: Optional[int]
     product_name: str
+    image_url: Optional[str] = None
     unit_price: float
     quantity: int
     line_total: float

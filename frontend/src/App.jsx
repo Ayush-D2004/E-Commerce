@@ -21,6 +21,8 @@ import BusinessAccountPage from './pages/BusinessAccountPage';
 import DigitalServicesPage from './pages/DigitalServicesPage';
 import LoginSecurityPage from './pages/LoginSecurityPage';
 import AmazonFamilyPage from './pages/AmazonFamilyPage';
+import PlaceholderPage from './pages/PlaceholderPage';
+import AboutPage from './pages/AboutPage';
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
             <Route path="/digital-services" element={<DigitalServicesPage />} />
             <Route path="/account/security" element={<LoginSecurityPage />} />
             <Route path="/amazon-family" element={<AmazonFamilyPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/coming-soon" element={<PlaceholderPage />} />
           </Routes>
         </main>
         <Footer />

@@ -10,6 +10,8 @@ export default function Header() {
   const [searchTerm, setSearchTerm] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [addressLabel, setAddressLabel] = useState('Select address');
+  const [backendStatus, setBackendStatus] = useState('loading');
+  const [connectingDots, setConnectingDots] = useState(1);
   const navigate = useNavigate();
   const location = useLocation();
   const activeCategory = useMemo(() => {
@@ -25,6 +27,17 @@ export default function Header() {
     e.preventDefault();
     if (searchTerm.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
+    }
+  };
+
+  const pingBackend = async () => {
+    setBackendStatus('loading');
+    try {
+      await apiClient.get('/health', { timeout: 12000 });
+      setBackendStatus('connected');
+    } catch (err) {
+      console.error(err);
+      setBackendStatus('connecting');
     }
   };
 
@@ -56,6 +69,37 @@ export default function Header() {
     };
     loadAddress();
   }, []);
+
+  useEffect(() => {
+    pingBackend();
+  }, []);
+
+  useEffect(() => {
+    if (backendStatus !== 'connecting') return;
+    const timer = setInterval(() => {
+      setConnectingDots((prev) => (prev % 3) + 1);
+    }, 350);
+    return () => clearInterval(timer);
+  }, [backendStatus]);
+
+  const backendButtonConfig = useMemo(() => {
+    if (backendStatus === 'connected') {
+      return {
+        label: 'Connected',
+        style: { backgroundColor: '#067d62', color: 'white' }
+      };
+    }
+    if (backendStatus === 'loading') {
+      return {
+        label: 'Loading',
+        style: { backgroundColor: '#ffd814', color: '#111' }
+      };
+    }
+    return {
+      label: `Connecting${'.'.repeat(connectingDots)}`,
+      style: { backgroundColor: '#b12704', color: 'white' }
+    };
+  }, [backendStatus, connectingDots]);
 
   return (
     <div className="sticky-shell">
@@ -149,6 +193,23 @@ export default function Header() {
         <Link to="/search?category=bags-accessories" className={`nav-link ${activeCategory === 'bags-accessories' ? 'active' : ''}`}>Bags</Link>
         <Link to="/search?sort=rating" className={`nav-link ${activeSort === 'rating' ? 'active' : ''}`}>Today's Deals</Link>
         <Link to="/search?sort=newest" className={`nav-link ${activeSort === 'newest' ? 'active' : ''}`}>New Releases</Link>
+        <button
+          onClick={pingBackend}
+          style={{
+            marginLeft: 'auto',
+            border: 'none',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            padding: '4px 10px',
+            cursor: 'pointer',
+            minWidth: '96px',
+            ...backendButtonConfig.style
+          }}
+          title="Ping backend service"
+        >
+          {backendButtonConfig.label}
+        </button>
       </div>
     </div>
   );

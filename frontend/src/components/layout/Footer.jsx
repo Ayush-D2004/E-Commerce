@@ -29,7 +29,7 @@ export default function Footer() {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Get to Know Us</h3>
-          <Link to="/coming-soon?topic=About%20Us" style={{ color: '#ccc' }}>About Us</Link>
+          <Link to="/about" style={{ color: '#ccc' }}>About Us</Link>
           <Link to="/coming-soon?topic=Careers" style={{ color: '#ccc' }}>Careers</Link>
           <Link to="/coming-soon?topic=Press%20Releases" style={{ color: '#ccc' }}>Press Releases</Link>
           <Link to="/coming-soon?topic=Scaler%20Science" style={{ color: '#ccc' }}>Scaler Science</Link>
@@ -37,9 +37,9 @@ export default function Footer() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Connect with Us</h3>
-          <Link to="/coming-soon?topic=Facebook" style={{ color: '#ccc' }}>Facebook</Link>
-          <Link to="/coming-soon?topic=Twitter" style={{ color: '#ccc' }}>Twitter</Link>
-          <Link to="/coming-soon?topic=Instagram" style={{ color: '#ccc' }}>Instagram</Link>
+          <a href="https://www.facebook.com" target="_blank" rel="noreferrer" style={{ color: '#ccc', textDecoration: 'none' }}>Facebook</a>
+          <a href="https://x.com" target="_blank" rel="noreferrer" style={{ color: '#ccc', textDecoration: 'none' }}>Twitter</a>
+          <a href="https://www.instagram.com" target="_blank" rel="noreferrer" style={{ color: '#ccc', textDecoration: 'none' }}>Instagram</a>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -54,8 +54,8 @@ export default function Footer() {
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '5px' }}>Let Us Help You</h3>
           <Link to="/account" style={{ color: '#ccc' }}>Your Account</Link>
           <Link to="/orders" style={{ color: '#ccc' }}>Returns Centre</Link>
-          <Link to="/coming-soon?topic=Purchase%20Protection" style={{ color: '#ccc' }}>100% Purchase Protection</Link>
-          <Link to="/coming-soon?topic=Help%20Center" style={{ color: '#ccc' }}>Help</Link>
+          <Link to="/customer-service" style={{ color: '#ccc' }}>100% Purchase Protection</Link>
+          <Link to="/customer-service" style={{ color: '#ccc' }}>Help</Link>
         </div>
       </div>
 
