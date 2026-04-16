@@ -54,6 +54,21 @@ class UserUpdate(BaseModel):
     email: str
     phone: str
 
+
+def _norm_text(value: Optional[str]) -> str:
+    return (value or "").strip()
+
+
+def _address_signature(line1: str, line2: Optional[str], city: str, state: str, postal_code: str, country: str) -> str:
+    return "|".join([
+        _norm_text(line1).lower(),
+        _norm_text(line2).lower(),
+        _norm_text(city).lower(),
+        _norm_text(state).lower(),
+        _norm_text(postal_code).lower(),
+        _norm_text(country).lower(),
+    ])
+
 @router.get("/users/me", response_model=UserProfile)
 def get_user_profile(db: Session = Depends(get_db)):
     user = ensure_default_user(db)
@@ -84,14 +99,41 @@ def update_user_profile(updates: UserUpdate, db: Session = Depends(get_db)):
 @router.post("/users/me/addresses", response_model=AddressSchema)
 def add_user_address(addr: AddressCreate, db: Session = Depends(get_db)):
     user = ensure_default_user(db)
+
+    line1 = _norm_text(addr.line1)
+    line2 = _norm_text(addr.line2) or None
+    city = _norm_text(addr.city)
+    state = _norm_text(addr.state)
+    postal_code = _norm_text(addr.postal_code)
+    country = _norm_text(addr.country) or "India"
+
+    new_signature = _address_signature(line1, line2, city, state, postal_code, country)
+    existing_addresses = db.query(Address).filter(Address.user_id == user.id).all()
+    for existing in existing_addresses:
+        existing_signature = _address_signature(
+            existing.line1,
+            existing.line2,
+            existing.city,
+            existing.state,
+            existing.postal_code,
+            existing.country,
+        )
+        if existing_signature == new_signature:
+            if addr.is_default and not existing.is_default:
+                db.query(Address).filter(Address.user_id == user.id).update({"is_default": False})
+                existing.is_default = True
+                db.commit()
+                db.refresh(existing)
+            return existing
+
     new_addr = Address(
         user_id=user.id,
-        line1=addr.line1,
-        line2=addr.line2,
-        city=addr.city,
-        state=addr.state,
-        postal_code=addr.postal_code,
-        country=addr.country,
+        line1=line1,
+        line2=line2,
+        city=city,
+        state=state,
+        postal_code=postal_code,
+        country=country,
         is_default=addr.is_default
     )
     if addr.is_default:
@@ -104,7 +146,26 @@ def add_user_address(addr: AddressCreate, db: Session = Depends(get_db)):
 @router.get("/users/me/addresses", response_model=List[AddressSchema])
 def list_user_addresses(db: Session = Depends(get_db)):
     user = ensure_default_user(db)
-    return db.query(Address).filter(Address.user_id == user.id).order_by(Address.created_at.desc()).all()
+    addresses = db.query(Address).filter(Address.user_id == user.id).all()
+    addresses.sort(key=lambda addr: ((1 if addr.is_default else 0), addr.created_at), reverse=True)
+
+    deduped = []
+    seen_signatures = set()
+    for addr in addresses:
+        signature = _address_signature(
+            addr.line1,
+            addr.line2,
+            addr.city,
+            addr.state,
+            addr.postal_code,
+            addr.country,
+        )
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        deduped.append(addr)
+
+    return deduped
 
 @router.put("/users/me/addresses/{addr_id}", response_model=AddressSchema)
 def update_user_address(addr_id: int, updates: AddressUpdate, db: Session = Depends(get_db)):

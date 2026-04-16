@@ -4,12 +4,16 @@ E-commerce application built to demonstrate high-availability patterns, advanced
 
 ---
 
+[![Watch the ScalerCart Project Video](https://img.youtube.com/vi/QTc1Nc-77Iw/hqdefault.jpg)](https://youtu.be/QTc1Nc-77Iw)
+
+---
 ## 🌐 Live Deployment
 
 - **Frontend (Vercel):** https://e-commerce-omega-nine-43.vercel.app
 - **Backend API (Render):** https://e-commerce-y277.onrender.com
 - **API Health Check:** https://e-commerce-y277.onrender.com/api/v1/health
 - **OpenAPI Docs:** https://e-commerce-y277.onrender.com/docs
+
 
 ---
 

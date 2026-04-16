@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 
 export default function AboutPage() {
-  const [message, setMessage] = useState('');
   const email = 'ayush.dhoble2004@gmail.com';
 
   const highlights = [
@@ -21,12 +20,6 @@ export default function AboutPage() {
     { layer: 'Deployment', value: 'Vercel (UI), Render (API), Neon PostgreSQL (cloud DB)' }
   ];
 
-  const mailtoHref = useMemo(() => {
-    const subject = 'ScalerCart Project Feedback';
-    const body = message.trim() || 'Hi';
-    return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  }, [email, message]);
-
   return (
     <div className="container" style={{ padding: '30px 0' }}>
       <div className="card" style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
@@ -41,7 +34,7 @@ export default function AboutPage() {
 
         <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
           <strong>Creator:</strong> Ayush Dhoble<br />
-          <strong>Email:</strong> <a href={`mailto:${email}`} style={{ color: 'var(--link-color)' }}>{email}</a>
+          <strong>Email:</strong> {email}
         </div>
 
         <h2 style={{ fontSize: '22px', marginBottom: '10px' }}>What Makes This Project Deep</h2>
@@ -60,40 +53,6 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
-
-        <h2 style={{ fontSize: '22px', marginBottom: '10px' }}>Direct Message</h2>
-        <p style={{ marginBottom: '10px', color: '#4b5563' }}>
-          Send a quick note directly via your email client.
-        </p>
-        <textarea
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Hey ! let me know that you have checked out my project by sending a HI !"
-          style={{
-            width: '100%',
-            minHeight: '110px',
-            border: '1px solid #d1d5db',
-            borderRadius: '8px',
-            padding: '12px',
-            resize: 'vertical',
-            fontSize: '14px',
-            marginBottom: '10px'
-          }}
-        />
-        <a
-          href={mailtoHref}
-          style={{
-            display: 'inline-block',
-            backgroundColor: 'var(--amz-orange)',
-            color: '#111',
-            textDecoration: 'none',
-            fontWeight: 'bold',
-            padding: '10px 16px',
-            borderRadius: '8px'
-          }}
-        >
-          Send Email
-        </a>
       </div>
     </div>
   );
