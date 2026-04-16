@@ -8,20 +8,12 @@ services:
     startCommand: bash scripts/start.sh
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: scalercart-db
-          property: connectionString
+        sync: false           # Paste your NeonDB string in the Render Dashboard
       - key: FRONTEND_URL
-        sync: false
+        sync: false           # Paste your Vercel URL here after you deploy
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: SEARCH_ARTIFACTS_DIR
         value: artifacts/search
-
-databases:
-  - name: scalercart-db
-    databaseName: scalercart
-    region: oregon
-    plan: free
