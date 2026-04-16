@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../apiClient';
+import { clearCart } from '../features/cart/cartSlice';
 
 function loadScript(src) {
     return new Promise((resolve) => {
@@ -42,7 +43,7 @@ export default function CheckoutPage() {
                       backend_order_id: orderId
                   });
                   // Clear local cart
-                  dispatch({ type: 'cart/removeFromCart' });
+                  dispatch(clearCart());
                   navigate(`/order-success?order_number=SC-${orderId}`);
               } catch (err) {
                   alert("Payment Verification Failed: " + (err.response?.data?.detail || err.message));
@@ -98,7 +99,7 @@ export default function CheckoutPage() {
              razorpay_signature: "mock_sig_123",
              backend_order_id: orderId
           });
-          dispatch({ type: 'cart/removeFromCart' });
+          dispatch(clearCart());
           navigate(`/order-success?order_number=SC-${orderId}`);
           return;
       }

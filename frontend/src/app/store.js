@@ -3,13 +3,40 @@ import cartReducer from '../features/cart/cartSlice';
 
 const CART_STORAGE_KEY = 'scalercart.cart.v1';
 
+const normalizeStoredCart = (parsed) => {
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  const normalizedItems = items
+    .map((item) => {
+      const productId = item?.product_id ?? item?.id;
+      const quantity = Number(item?.quantity);
+      const unitPrice = Number(item?.unit_price ?? item?.price);
+      if (productId === undefined || productId === null || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice)) {
+        return null;
+      }
+      return {
+        product_id: String(productId),
+        name: item?.name || '',
+        image_url: item?.image_url || '',
+        quantity,
+        unit_price: unitPrice,
+        line_total: quantity * unitPrice,
+      };
+    })
+    .filter(Boolean);
+
+  const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
+  return { items: normalizedItems, subtotal };
+};
+
 const loadCartState = () => {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return undefined;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return undefined;
-    return { cart: parsed };
+    const normalizedCart = normalizeStoredCart(parsed);
+    if (!normalizedCart) return undefined;
+    return { cart: normalizedCart };
   } catch {
     return undefined;
   }

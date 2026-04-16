@@ -1,6 +1,9 @@
 import React from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import apiClient from './apiClient';
+import { hydrateCart } from './features/cart/cartSlice';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
@@ -25,6 +28,27 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import AboutPage from './pages/AboutPage';
 
 function App() {
+  const dispatch = useDispatch();
+  const cartItemsCount = useSelector((state) => state.cart.items.length);
+
+  React.useEffect(() => {
+    if (cartItemsCount > 0) return;
+
+    const loadServerCart = async () => {
+      try {
+        const { data } = await apiClient.get('/cart');
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (items.length > 0) {
+          dispatch(hydrateCart({ items }));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadServerCart();
+  }, [cartItemsCount, dispatch]);
+
   return (
     <BrowserRouter>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

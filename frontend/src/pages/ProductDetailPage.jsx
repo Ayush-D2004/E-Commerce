@@ -1,10 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../features/cart/cartSlice';
 import apiClient from '../apiClient';
 import { formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 import { Heart } from 'lucide-react';
+
+const SIMULATED_STOCK_KEY = 'scalercart.simulatedStock.v1';
+
+const loadStockMap = () => {
+  try {
+    return JSON.parse(localStorage.getItem(SIMULATED_STOCK_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+const saveStockMap = (stockMap) => {
+  try {
+    localStorage.setItem(SIMULATED_STOCK_KEY, JSON.stringify(stockMap));
+  } catch {
+    // Ignore storage errors
+  }
+};
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -13,8 +31,19 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
+  const [baseStock, setBaseStock] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewImage, setReviewImage] = useState('');
+  const [reviews, setReviews] = useState([]);
   const dispatch = useDispatch();
+  const cartItems = useSelector((state) => state.cart.items);
   const navigate = useNavigate();
+
+  const cartQtyForProduct = cartItems
+    .filter((item) => String(item.product_id) === String(id))
+    .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+  const stockRemaining = Math.max(0, baseStock - cartQtyForProduct);
 
   useEffect(() => {
     setLoading(true);
@@ -54,6 +83,34 @@ export default function ProductDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    const key = String(id);
+    const stockMap = loadStockMap();
+    if (!Number.isFinite(stockMap[key])) {
+      stockMap[key] = Math.floor(Math.random() * 11) + 5; // 5..15
+      saveStockMap(stockMap);
+    }
+    setBaseStock(Number(stockMap[key]) || 5);
+  }, [id]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`scalercart.reviews.${id}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setReviews(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setReviews([]);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`scalercart.reviews.${id}`, JSON.stringify(reviews));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [id, reviews]);
+
+  useEffect(() => {
     if (!product) return;
     try {
       const stored = localStorage.getItem('recentlyViewed');
@@ -77,15 +134,25 @@ export default function ProductDetailPage() {
   if (!product) return <div className="container" style={{ padding: '20px' }}>Product not found.</div>;
 
   const handleAddToCart = () => {
+    if (stockRemaining <= 0) return;
+
     dispatch(addToCart({
       id: product.id,
       name: product.name,
       price: product.price,
       image_url: product.images?.[0]?.url || ''
     }));
+
+    apiClient.post('/cart/items', {
+      product_id: product.id,
+      quantity: 1
+    }).catch((err) => {
+      console.error(err);
+    });
   };
 
   const handleBuyNow = () => {
+    if (stockRemaining <= 0) return;
     handleAddToCart();
     navigate('/checkout');
   };
@@ -107,6 +174,32 @@ export default function ProductDetailPage() {
     } finally {
       setWishlistBusy(false);
     }
+  };
+
+  const handleReviewImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setReviewImage(String(reader.result || ''));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddReview = () => {
+    const text = reviewText.trim();
+    if (!text) return;
+
+    const nextReview = {
+      id: Date.now(),
+      text,
+      image: reviewImage || null,
+      createdAt: new Date().toISOString()
+    };
+
+    setReviews((prev) => [nextReview, ...prev]);
+    setReviewText('');
+    setReviewImage('');
   };
 
   return (
@@ -159,6 +252,88 @@ export default function ProductDetailPage() {
             <h3 style={{ fontSize: '16px', marginBottom: '5px' }}>About this item</h3>
             <p style={{ fontSize: '14px', lineHeight: '1.6' }}>{product.description}</p>
           </div>
+
+          <div style={{ margin: '20px 0', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+            <h3 style={{ fontSize: '18px', marginBottom: '10px' }}>Add Comment and Review</h3>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+              <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Share your review..."
+                  style={{
+                    flex: 1,
+                    minHeight: '80px',
+                    border: '1px solid #d5d9d9',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    resize: 'vertical'
+                  }}
+                />
+                <label
+                  htmlFor={`review-image-${id}`}
+                  title="Add image"
+                  style={{
+                    width: '40px',
+                    minWidth: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    border: '1px solid #d5d9d9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '24px',
+                    lineHeight: 1,
+                    backgroundColor: '#fff'
+                  }}
+                >
+                  +
+                </label>
+                <input
+                  id={`review-image-${id}`}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleReviewImage}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              <div style={{ width: '92px', minWidth: '92px', height: '92px', border: '1px solid #d5d9d9', borderRadius: '8px', backgroundColor: '#f8f8f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {reviewImage ? (
+                  <img src={reviewImage} alt="Review preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '12px', color: '#666' }}>No image</span>
+                )}
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              style={{ marginTop: '10px' }}
+              onClick={handleAddReview}
+              disabled={!reviewText.trim()}
+            >
+              Post Review
+            </button>
+
+            {reviews.length > 0 && (
+              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {reviews.map((review) => (
+                  <div key={review.id} style={{ border: '1px solid #e6e6e6', borderRadius: '8px', padding: '10px', backgroundColor: '#fff' }}>
+                    <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>{review.text}</p>
+                    {review.image && (
+                      <img
+                        src={review.image}
+                        alt="Review"
+                        style={{ marginTop: '8px', width: '90px', height: '90px', objectFit: 'cover', borderRadius: '6px' }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           
           {product.specs && product.specs.length > 0 && (
             <div style={{ marginTop: '20px' }}>
@@ -181,14 +356,15 @@ export default function ProductDetailPage() {
           <div className="card" style={{ border: '1px solid var(--border-color)', padding: '15px' }}>
             <p style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{formatPrice(product.price)}</p>
             
-            <p style={{ color: 'green', fontSize: '18px', margin: '10px 0' }}>
-              {product.in_stock ? 'In Stock' : 'Out of Stock'}
+            <p style={{ color: stockRemaining > 0 ? 'green' : '#B12704', fontSize: '18px', margin: '10px 0' }}>
+              {stockRemaining > 0 ? `In Stock (${stockRemaining} left)` : 'Out of Stock'}
             </p>
 
             <button 
               className="btn-primary" 
               style={{ width: '100%', marginBottom: '10px', borderRadius: '20px' }}
               onClick={handleAddToCart}
+              disabled={stockRemaining <= 0}
             >
               Add to Cart
             </button>
@@ -196,6 +372,7 @@ export default function ProductDetailPage() {
               className="btn-primary" 
               style={{ width: '100%', backgroundColor: '#FFA41C', borderRadius: '20px' }}
               onClick={handleBuyNow}
+              disabled={stockRemaining <= 0}
             >
               Buy Now
             </button>

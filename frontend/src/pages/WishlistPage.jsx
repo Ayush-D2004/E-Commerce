@@ -41,6 +41,13 @@ export default function WishlistPage() {
       price: item.price,
       image_url: item.image_url || ''
     }));
+
+    apiClient.post('/cart/items', {
+      product_id: item.id,
+      quantity: 1
+    }).catch((err) => {
+      console.error(err);
+    });
   };
 
   return (
