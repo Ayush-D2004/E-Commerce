@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from app.core.database import get_db
+from app.core.user_context import ensure_default_user
 from app.models import User, Address
 
 router = APIRouter(tags=["Users"])
@@ -55,23 +56,23 @@ class UserUpdate(BaseModel):
 
 @router.get("/users/me", response_model=UserProfile)
 def get_user_profile(db: Session = Depends(get_db)):
-    # Mocking authenticated user logic
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users in database")
+    user = ensure_default_user(db)
     return user
 
 @router.put("/users/me", response_model=UserProfile)
 def update_user_profile(updates: UserUpdate, db: Session = Depends(get_db)):
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users in database")
+    user = ensure_default_user(db)
     
     # Check if phone belongs to another user
     if updates.phone != user.phone:
-        existing = db.query(User).filter(User.phone == updates.phone).first()
+        existing = db.query(User).filter(User.phone == updates.phone, User.id != user.id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Phone number already registered")
+
+    if updates.email != user.email:
+        existing_email = db.query(User).filter(User.email == updates.email, User.id != user.id).first()
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already registered")
             
     user.name = updates.name
     user.email = updates.email
@@ -82,7 +83,7 @@ def update_user_profile(updates: UserUpdate, db: Session = Depends(get_db)):
 
 @router.post("/users/me/addresses", response_model=AddressSchema)
 def add_user_address(addr: AddressCreate, db: Session = Depends(get_db)):
-    user = db.query(User).first()
+    user = ensure_default_user(db)
     new_addr = Address(
         user_id=user.id,
         line1=addr.line1,
@@ -102,16 +103,12 @@ def add_user_address(addr: AddressCreate, db: Session = Depends(get_db)):
 
 @router.get("/users/me/addresses", response_model=List[AddressSchema])
 def list_user_addresses(db: Session = Depends(get_db)):
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users in database")
+    user = ensure_default_user(db)
     return db.query(Address).filter(Address.user_id == user.id).order_by(Address.created_at.desc()).all()
 
 @router.put("/users/me/addresses/{addr_id}", response_model=AddressSchema)
 def update_user_address(addr_id: int, updates: AddressUpdate, db: Session = Depends(get_db)):
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users in database")
+    user = ensure_default_user(db)
     address = db.query(Address).filter(Address.id == addr_id, Address.user_id == user.id).first()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
@@ -127,9 +124,7 @@ def update_user_address(addr_id: int, updates: AddressUpdate, db: Session = Depe
 
 @router.delete("/users/me/addresses/{addr_id}")
 def delete_user_address(addr_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No users in database")
+    user = ensure_default_user(db)
     address = db.query(Address).filter(Address.id == addr_id, Address.user_id == user.id).first()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")

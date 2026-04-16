@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.user_context import ensure_default_user
 from app.models import Order, OrderItem, Cart, Address, Inventory, Product, Notification
 from app.schemas import CheckoutRequest, OrderListResponse, OrderSchema, CancelOrderRequest, ReturnOrderRequest, OrderItemSchema, OrderAddressSchema
 import uuid
@@ -9,7 +10,7 @@ router = APIRouter()
 
 @router.post("/checkout")
 def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     
     if not req.items or len(req.items) == 0:
         raise HTTPException(status_code=400, detail="Checkout items are missing")
@@ -110,7 +111,7 @@ def checkout(req: CheckoutRequest, db: Session = Depends(get_db)):
 
 @router.get("/orders", response_model=OrderListResponse)
 def get_orders(db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     orders = db.query(Order).filter(Order.user_id == user_id).order_by(Order.created_at.desc()).all()
     items = []
     for o in orders:
@@ -148,7 +149,7 @@ def get_orders(db: Session = Depends(get_db)):
 
 @router.post("/orders/{order_id}/cancel")
 def cancel_order(order_id: int, req: CancelOrderRequest, db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -180,7 +181,7 @@ def cancel_order(order_id: int, req: CancelOrderRequest, db: Session = Depends(g
 
 @router.post("/orders/{order_id}/return")
 def return_or_replace_order(order_id: int, req: ReturnOrderRequest, db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")

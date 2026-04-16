@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../features/cart/cartSlice';
 import apiClient from '../apiClient';
-import { formatPrice, sanitizeName } from '../utils/productUtils';
+import { formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 import { Heart } from 'lucide-react';
 
 export default function ProductDetailPage() {
@@ -102,7 +102,8 @@ export default function ProductDetailPage() {
         setIsWishlisted(true);
       }
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to update wishlist');
+      const detail = err.response?.data?.detail;
+      alert(Array.isArray(detail) ? detail.map((d) => d.msg).join(', ') : (detail || 'Failed to update wishlist'));
     } finally {
       setWishlistBusy(false);
     }
@@ -120,7 +121,7 @@ export default function ProductDetailPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
           }}>
             {product.images && product.images.length > 0 ? (
-              <img src={product.images[0].url} alt={product.images[0].alt_text} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+              <img src={getProductImageUrl(product.images[0].url, product.id)} alt={product.images[0].alt_text} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${product.id}/400`; }} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
             ) : (
               <span style={{ color: '#ccc' }}>No Image</span>
             )}
@@ -220,7 +221,7 @@ export default function ProductDetailPage() {
             {recommendations.map(p => (
               <a href={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
-                    <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={p.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    <img src={getProductImageUrl(p.image_url, p.id)} alt={p.name} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/180`; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
                 <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sanitizeName(p.name)}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '5px' }}>

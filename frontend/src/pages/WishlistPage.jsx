@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { addToCart } from '../features/cart/cartSlice';
-import { formatPrice, sanitizeName } from '../utils/productUtils';
+import { formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 
 export default function WishlistPage() {
   const [items, setItems] = useState([]);
@@ -57,8 +57,9 @@ export default function WishlistPage() {
               <Link to={`/product/${item.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ height: '180px', backgroundColor: '#f8f8f8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <img
-                    src={item.image_url || `https://picsum.photos/seed/${item.id}/200`}
+                    src={getProductImageUrl(item.image_url, item.id)}
                     alt={sanitizeName(item.name)}
+                    onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${item.id}/200`; }}
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                   />
                 </div>

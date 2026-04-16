@@ -2,7 +2,7 @@ import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { removeFromCart, setQuantity } from '../features/cart/cartSlice';
 import { useNavigate } from 'react-router-dom';
-import { formatPrice, sanitizeName } from '../utils/productUtils';
+import { formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 
 export default function CartPage() {
   const { items, subtotal } = useSelector((state) => state.cart);
@@ -48,7 +48,7 @@ export default function CartPage() {
               <div key={item.product_id} style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
                 <div style={{ width: '150px', height: '150px', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                    <img src={getProductImageUrl(item.image_url, item.product_id)} alt={item.name} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${item.product_id}/200`; }} style={{ maxWidth: '100%', maxHeight: '100%' }} />
                   ) : <span style={{ color: '#aaa' }}>Img</span>}
                 </div>
                 

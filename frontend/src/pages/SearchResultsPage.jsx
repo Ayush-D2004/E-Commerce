@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import apiClient from '../apiClient';
-import { formatPrice, sanitizeName } from '../utils/productUtils';
+import { formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 
 export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -118,7 +118,7 @@ export default function SearchResultsPage() {
         id: `ext-${i.id}`,
         name: i.title,
         price: i.price * 80, // rough INR conversion
-        image_url: i.images?.[0] ? i.images[0].replace(/\["|"]/g, '') : '',
+        image_url: getProductImageUrl(i.images?.[0], `ext-${i.id}`),
         rating: 4.5,
         review_count: Math.floor(Math.random() * 500) + 10,
         isExternal: true,
@@ -237,9 +237,9 @@ export default function SearchResultsPage() {
             {products.map(p => (
               <div key={p.id} style={{ display: 'flex', gap: '20px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #eee' }}>
                 <img 
-                  src={p.image_url || `https://picsum.photos/seed/${p.id}/200`} 
+                  src={getProductImageUrl(p.image_url, p.id)} 
                   alt={sanitizeName(p.name)} 
-                  onError={(e) => { e.target.src = 'https://picsum.photos/200' }}
+                  onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/200`; }}
                   style={{ width: '200px', height: '200px', objectFit: 'contain', backgroundColor: '#f8f8f8' }} 
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>

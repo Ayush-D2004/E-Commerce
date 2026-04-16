@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { Star } from 'lucide-react';
-import { dedupeById, formatPrice, sanitizeName } from '../utils/productUtils';
+import { dedupeById, formatPrice, getProductImageUrl, sanitizeName } from '../utils/productUtils';
 
 export default function HomePage() {
   const [flashDeals, setFlashDeals] = useState([]);
@@ -110,7 +110,7 @@ export default function HomePage() {
         {products.map(p => (
           <Link to={`/product/${p.id}`} key={p.id} style={{ display: 'flex', flexDirection: 'column', width: '200px', flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
             <div style={{ height: '200px', backgroundColor: '#f8f8f8', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '10px' }}>
-              <img src={p.image_url || `https://picsum.photos/seed/${p.id}/180`} alt={sanitizeName(p.name)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              <img src={getProductImageUrl(p.image_url, p.id)} alt={sanitizeName(p.name)} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/180`; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             </div>
             <span style={{ color: '#007185', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {sanitizeName(p.name)}
@@ -150,7 +150,7 @@ export default function HomePage() {
                 {heroRow.map((p) => (
                   <Link to={`/product/${p.id}`} key={`hero-${p.id}`} className="frame-card">
                     <div className="frame-image">
-                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={sanitizeName(p.name)} />
+                      <img src={getProductImageUrl(p.image_url, p.id)} alt={sanitizeName(p.name)} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/220`; }} />
                     </div>
                     <div className="frame-meta">
                       <span className="frame-name">{sanitizeName(p.name)}</span>
@@ -167,7 +167,7 @@ export default function HomePage() {
                 {heroRow.map((p) => (
                   <Link to={`/product/${p.id}`} key={`hero-dup-${p.id}`} className="frame-card">
                     <div className="frame-image">
-                      <img src={p.image_url || `https://picsum.photos/seed/${p.id}/220`} alt={sanitizeName(p.name)} />
+                      <img src={getProductImageUrl(p.image_url, p.id)} alt={sanitizeName(p.name)} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/220`; }} />
                     </div>
                     <div className="frame-meta">
                       <span className="frame-name">{sanitizeName(p.name)}</span>
@@ -231,7 +231,7 @@ export default function HomePage() {
                   {galleryProducts.map((p) => (
                     <Link to={`/product/${p.id}`} key={`gallery-${p.id}`} className="gallery-card">
                       <div className="gallery-image">
-                        <img src={p.image_url || `https://picsum.photos/seed/${p.id}/240`} alt={sanitizeName(p.name)} />
+                        <img src={getProductImageUrl(p.image_url, p.id)} alt={sanitizeName(p.name)} onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${p.id}/240`; }} />
                       </div>
                       <div className="gallery-info">
                         <span>{sanitizeName(p.name)}</span>

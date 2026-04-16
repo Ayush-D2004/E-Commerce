@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.core.database import get_db
-from app.models import Product, ProductRecommendation, OrderItem, CartItem, Order, Wishlist, WishlistItem
+from app.core.user_context import ensure_default_user
+from app.models import Product, ProductRecommendation, OrderItem, CartItem, Order, Wishlist, WishlistItem, User
 
 router = APIRouter()
 
@@ -84,6 +85,9 @@ def get_similar_products(product_id: int, db: Session = Depends(get_db)):
 
 @router.get("/recommendations/personalized")
 def get_personalized(db: Session = Depends(get_db), user_id: int = 1):
+    if not db.query(User).filter(User.id == user_id).first():
+        user_id = ensure_default_user(db).id
+
     # Strategy: User -> Recommendation Service
     # 1. Fetch user signals
     past_order_items = db.query(OrderItem).join(Order).filter(Order.user_id == user_id).limit(10).all()

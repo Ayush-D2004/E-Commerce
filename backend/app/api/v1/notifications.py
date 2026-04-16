@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.user_context import ensure_default_user
 from app.models import Notification
 
 router = APIRouter(tags=["Notifications"])
 
 @router.get("/notifications")
 def get_notifications(db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     notes = db.query(Notification).filter(
         Notification.user_id == user_id
     ).order_by(Notification.created_at.desc()).limit(50).all()
@@ -37,7 +38,7 @@ def mark_read(notification_id: int, db: Session = Depends(get_db)):
 
 @router.put("/notifications/read-all")
 def mark_all_read(db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     db.query(Notification).filter(
         Notification.user_id == user_id,
         Notification.is_read == False

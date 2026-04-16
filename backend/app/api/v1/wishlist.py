@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.user_context import ensure_default_user
 from app.models import Wishlist, WishlistItem, Product
 
 router = APIRouter(tags=["Wishlist"])
@@ -16,7 +17,7 @@ def _get_or_create_wishlist(user_id: int, db: Session) -> Wishlist:
 
 @router.get("/wishlist")
 def get_wishlist(db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     wishlist = _get_or_create_wishlist(user_id, db)
     items = []
     for wi in wishlist.items:
@@ -36,7 +37,7 @@ def get_wishlist(db: Session = Depends(get_db)):
 
 @router.post("/wishlist/{product_id}")
 def add_to_wishlist(product_id: int, db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -54,7 +55,7 @@ def add_to_wishlist(product_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/wishlist/{product_id}")
 def remove_from_wishlist(product_id: int, db: Session = Depends(get_db)):
-    user_id = 1
+    user_id = ensure_default_user(db).id
     wishlist = _get_or_create_wishlist(user_id, db)
     wi = db.query(WishlistItem).filter(
         WishlistItem.wishlist_id == wishlist.id,

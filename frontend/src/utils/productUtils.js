@@ -33,3 +33,34 @@ export const dedupeById = (items = []) => {
   });
   return result;
 };
+
+export const getProductImageUrl = (rawUrl, fallbackSeed = "product") => {
+  const fallback = `https://picsum.photos/seed/${fallbackSeed}/320`;
+  if (!rawUrl) return fallback;
+
+  let cleaned = String(rawUrl).trim();
+  if (!cleaned) return fallback;
+
+  cleaned = cleaned
+    .replace(/^\["/, "")
+    .replace(/"\]$/, "")
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\\u0026/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!/^https?:\/\//i.test(cleaned)) {
+    return fallback;
+  }
+
+  if (cleaned.startsWith("http://")) {
+    cleaned = `https://${cleaned.slice("http://".length)}`;
+  }
+
+  try {
+    const url = new URL(cleaned);
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+};

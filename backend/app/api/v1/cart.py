@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.user_context import ensure_default_user
 from app.models import Cart, CartItem, Product, User
 from app.schemas import CartResponse, CartItemAddRequest, CartItemSchema
 
 router = APIRouter()
 
-def get_or_create_cart(db: Session, user_id: int = 1):
+def get_or_create_cart(db: Session, user_id: int | None = None):
+    if user_id is None:
+        user_id = ensure_default_user(db).id
     cart = db.query(Cart).filter(Cart.user_id == user_id, Cart.status == 'active').first()
     if not cart:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="Default User not found")
+        user = db.query(User).filter(User.id == user_id).first() or ensure_default_user(db)
+        user_id = user.id
         cart = Cart(user_id=user_id, status='active')
         db.add(cart)
         db.commit()
