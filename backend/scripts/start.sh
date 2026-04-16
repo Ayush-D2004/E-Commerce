@@ -9,4 +9,5 @@ echo "--- Applying DB migrations ---"
 alembic upgrade head || alembic stamp head
 
 echo "--- Starting Uvicorn ---"
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+export PYTHONUNBUFFERED=1
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:10000}

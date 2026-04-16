@@ -7,15 +7,7 @@ from typing import Any
 
 import numpy as np
 
-try:
-    import faiss  # type: ignore
-except Exception:
-    faiss = None
-
-try:
-    from sentence_transformers import SentenceTransformer
-except Exception:
-    SentenceTransformer = None
+# We defer faiss and sentence_transformers imports so it doesn't block startup and doesn't load Torch into RAM when in LEAN MODE.
 
 
 @dataclass
@@ -97,10 +89,21 @@ def load_search_artifacts() -> SearchArtifacts:
     if skipped_metadata_ids:
         state.errors.append(f"Skipped {skipped_metadata_ids} non-integer product IDs in product_metadata.json")
 
-    if faiss is None:
-        state.errors.append("faiss not available. Semantic reranking disabled.")
+    # Default lean_mode to "true" for Render deployments to avoid OOM or GIL blocks during startup
+    lean_mode = os.getenv("SEARCH_LEAN_MODE", "true").lower() == "true"
+    
+    if lean_mode:
+        state.errors.append("SEARCH_LEAN_MODE enabled. Semantic reranking disabled.")
     else:
-        index_path = artifacts_dir / "semantic_faiss.index"
+        try:
+            import faiss
+        except ImportError:
+            faiss = None
+            
+        if faiss is None:
+            state.errors.append("faiss not available. Semantic reranking disabled.")
+        else:
+            index_path = artifacts_dir / "semantic_faiss.index"
         id_map_npy_path = artifacts_dir / "semantic_id_map.npy"
         id_map_json_path = artifacts_dir / "id_mapping.json"
         semantic_encoder = str(manifest.get("semantic_encoder", "")).strip().lower()
@@ -124,6 +127,11 @@ def load_search_artifacts() -> SearchArtifacts:
                     raise RuntimeError("No valid integer IDs in semantic id mapping")
 
                 state.semantic_model_name = manifest.get("semantic_model_name", "all-MiniLM-L6-v2")
+                try:
+                    from sentence_transformers import SentenceTransformer
+                except ImportError:
+                    SentenceTransformer = None
+
                 if SentenceTransformer is None:
                     state.errors.append("sentence-transformers not installed. Semantic reranking disabled.")
                 else:
