@@ -193,10 +193,15 @@ export default function Header() {
         <Link to="/search?category=bags-accessories" className={`nav-link ${activeCategory === 'bags-accessories' ? 'active' : ''}`}>Bags</Link>
         <Link to="/search?sort=rating" className={`nav-link ${activeSort === 'rating' ? 'active' : ''}`}>Today's Deals</Link>
         <Link to="/search?sort=newest" className={`nav-link ${activeSort === 'newest' ? 'active' : ''}`}>New Releases</Link>
+        {backendStatus !== 'connected' && (
+          <span style={{ marginLeft: 'auto', fontSize: '11px', opacity: 0.9 }}>
+            Backend is deployed on Render free-tier servers, waking up may take some time.
+          </span>
+        )}
         <button
           onClick={pingBackend}
           style={{
-            marginLeft: 'auto',
+            marginLeft: backendStatus === 'connected' ? 'auto' : '0',
             border: 'none',
             borderRadius: '999px',
             fontSize: '11px',
